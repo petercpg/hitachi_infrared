@@ -1,0 +1,12 @@
+{
+  "domain": "hitachi_infrared",
+  "name": "Hitachi Infrared Remote Integration",
+  "codeowners": ["@petercpg"],
+  "config_flow": true,
+  "documentation": "https://github.com/petercpg/infrared-protocols",
+  "integration_type": "device",
+  "iot_class": "assumed_state",
+  "requirements": ["infrared-protocols>=8.2.0"],
+  "version": "1.0.0"
+}
+

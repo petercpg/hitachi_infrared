@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hitachi Infrared Remote Integration",
+        "description": "Configure Hitachi Infrared Remote entity.",
+        "data": {
+          "name": "Name",
+          "emitter_entity_id": "Infrared / Remote Entity",
+          "temperature_sensor": "Temperature Sensor Entity (Optional)",
+          "protocol": "Protocol",
+          "cool_only": "Cool Only"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This emitter is already configured."
+    }
+  }
+}
