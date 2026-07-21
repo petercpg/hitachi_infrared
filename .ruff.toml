@@ -13,6 +13,20 @@ ignore = [
     "D212", # multi-line-summary-first-line (incompatible with formatter)
     "COM812", # incompatible with formatter
     "ISC001", # incompatible with formatter
+    "RUF001", # String contains ambiguous unicode character (Chinese punctuation)
+    "RUF002", # Docstring contains ambiguous unicode character (Chinese punctuation)
+    "RUF003", # Comment contains ambiguous unicode character (Chinese punctuation)
+    "ERA001", # Found commented-out code (causes false positives with Chinese comments containing '=')
+    "PLR2004", # Magic value used in comparison
+    "G004", # Logging statement uses f-string
+    "ANN", # Ignore type annotation warnings for custom component simplicity
+    "FBT", # Ignore boolean trap warnings (common in HA signatures)
+    "PLC0415", # Ignore local imports warnings (used to avoid circular dependencies in HA)
+    "E501", # Ignore line length warnings
+    "PLR0915", # Ignore too many statements warning
+    "ARG", # Ignore unused arguments warnings (e.g. discovery_info in HA setup_platform)
+    "D", # Ignore docstring format/missing warnings to avoid style noise
+    "PLR0913", # Ignore too many arguments in constructor/function definition
 ]
 
 [lint.flake8-pytest-style]
