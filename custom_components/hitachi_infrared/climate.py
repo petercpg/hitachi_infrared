@@ -220,12 +220,36 @@ class HitachiIRClimate(ClimateEntity):
             )
             # AUTO mode fan speeds
             self._attr_fan_modes = [FAN_AUTO, FAN_LOW, "silent"]
-            if self._attr_target_temperature is None:
-                self._attr_target_temperature = 25  # Default reference temperature
+
+            if self._attr_current_temperature is not None:
+                # When external temperature sensor is available, base limits on ambient temp
+                base = round(self._attr_current_temperature)
+                self._attr_min_temp = max(hitachi.MIN_TEMP, base - 3)
+                self._attr_max_temp = min(hitachi.MAX_TEMP, base + 3)
+                if self._attr_target_temperature is None:
+                    self._attr_target_temperature = base
+                else:
+                    self._attr_target_temperature = max(
+                        self._attr_min_temp,
+                        min(self._attr_max_temp, int(self._attr_target_temperature)),
+                    )
+            else:
+                # When no current temperature sensor is available, display direct -3°C to +3°C offset range
+                self._attr_min_temp = -3
+                self._attr_max_temp = 3
+                if (
+                    self._attr_target_temperature is None
+                    or self._attr_target_temperature > 3
+                    or self._attr_target_temperature < -3
+                ):
+                    self._attr_target_temperature = 0
+
             if self._attr_fan_mode not in self._attr_fan_modes:
                 self._attr_fan_mode = FAN_AUTO
 
         elif mode == HVACMode.DRY:
+            self._attr_min_temp = hitachi.MIN_TEMP
+            self._attr_max_temp = hitachi.MAX_TEMP
             self._attr_supported_features = (
                 ClimateEntityFeature.TARGET_TEMPERATURE
                 | ClimateEntityFeature.FAN_MODE
@@ -234,12 +258,18 @@ class HitachiIRClimate(ClimateEntity):
             )
             # DRY mode fan speeds
             self._attr_fan_modes = [FAN_LOW, "silent"]
-            if self._attr_target_temperature is None:
+            if (
+                self._attr_target_temperature is None
+                or self._attr_target_temperature < self._attr_min_temp
+                or self._attr_target_temperature > self._attr_max_temp
+            ):
                 self._attr_target_temperature = 26
             if self._attr_fan_mode not in self._attr_fan_modes:
                 self._attr_fan_mode = FAN_LOW
 
         else:  # COOL, HEAT, OFF
+            self._attr_min_temp = hitachi.MIN_TEMP
+            self._attr_max_temp = hitachi.MAX_TEMP
             self._attr_supported_features = (
                 ClimateEntityFeature.TARGET_TEMPERATURE
                 | ClimateEntityFeature.FAN_MODE
@@ -253,7 +283,11 @@ class HitachiIRClimate(ClimateEntity):
                 FAN_LOW,
                 "silent",
             ]
-            if self._attr_target_temperature is None:
+            if (
+                self._attr_target_temperature is None
+                or self._attr_target_temperature < self._attr_min_temp
+                or self._attr_target_temperature > self._attr_max_temp
+            ):
                 self._attr_target_temperature = 26
             if self._attr_fan_mode not in self._attr_fan_modes:
                 self._attr_fan_mode = FAN_AUTO
@@ -268,6 +302,7 @@ class HitachiIRClimate(ClimateEntity):
             if state and state.state not in ["unknown", "unavailable"]:
                 with contextlib.suppress(ValueError):
                     self._attr_current_temperature = float(state.state)
+                    self._update_supported_limits()
 
             # Listen for state changes
             @callback
@@ -276,6 +311,7 @@ class HitachiIRClimate(ClimateEntity):
                 if new_state and new_state.state not in ["unknown", "unavailable"]:
                     with contextlib.suppress(ValueError):
                         self._attr_current_temperature = float(new_state.state)
+                        self._update_supported_limits()
                         self.async_write_ha_state()
 
             self.async_on_remove(
@@ -427,14 +463,13 @@ class HitachiIRClimate(ClimateEntity):
 
         # Temperature mapping
         if current_mode == hitachi.HitachiAcMode.AUTO:
-            # AUTO mode: calculate offset relative to current ambient temperature
-            base_temp = (
-                self._attr_current_temperature
-                if self._attr_current_temperature is not None
-                else 25
-            )
-            temp_offset = round(self._attr_target_temperature - base_temp)
-            target_temp = max(-3, min(3, temp_offset))
+            if self._attr_current_temperature is not None:
+                base_temp = self._attr_current_temperature
+                temp_offset = round(self._attr_target_temperature - base_temp)
+                target_temp = max(-3, min(3, temp_offset))
+            else:
+                # Direct offset when no current temperature sensor is configured (-3 to +3)
+                target_temp = max(-3, min(3, int(self._attr_target_temperature)))
         elif current_mode == hitachi.HitachiAcMode.FAN_ONLY:
             # FAN_ONLY mode does not transmit target temperature (filler 27°C used for payload structure)
             target_temp = 27
