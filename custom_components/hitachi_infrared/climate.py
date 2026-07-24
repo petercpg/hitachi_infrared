@@ -3,6 +3,7 @@ import contextlib
 import logging
 from typing import TYPE_CHECKING
 
+import voluptuous as vol
 from homeassistant.components import infrared
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
@@ -19,6 +20,8 @@ from homeassistant.components.climate.const import (
 )
 from homeassistant.const import ATTR_TEMPERATURE
 from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 from infrared_protocols.commands import hitachi
@@ -37,6 +40,51 @@ if TYPE_CHECKING:
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _async_register_services() -> None:
+    """Register custom entity services for Hitachi IR Climate."""
+    platform = entity_platform.async_get_current_platform()
+
+    platform.async_register_entity_service(
+        "set_display",
+        {
+            vol.Required("display"): cv.string,
+        },
+        "async_set_display",
+    )
+    platform.async_register_entity_service(
+        "set_pm25",
+        {
+            vol.Optional("active", default=True): cv.boolean,
+        },
+        "async_set_pm25",
+    )
+    platform.async_register_entity_service(
+        "set_timer",
+        {
+            vol.Required("minutes"): cv.positive_int,
+        },
+        "async_set_timer",
+    )
+    platform.async_register_entity_service(
+        "cancel_timer",
+        {},
+        "async_cancel_timer",
+    )
+    platform.async_register_entity_service(
+        "run_clean",
+        {},
+        "async_run_clean",
+    )
+    platform.async_register_entity_service(
+        "set_mold_prevention",
+        {
+            vol.Required("active"): cv.boolean,
+            vol.Optional("duration", default=30): cv.positive_int,
+        },
+        "async_set_mold_prevention",
+    )
 
 
 def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
@@ -70,6 +118,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
             )
         ]
     )
+    _async_register_services()
 
 
 async def async_setup_entry(
@@ -104,6 +153,7 @@ async def async_setup_entry(
             )
         ]
     )
+    _async_register_services()
 
 
 class HitachiIRClimate(ClimateEntity, RestoreEntity):
@@ -188,11 +238,12 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         self._attr_swing_mode = SWING_OFF
         self._attr_swing_horizontal_mode = "middle"
 
-        # Advanced feature states (timers, mold prevention)
+        # Advanced feature states (timers, mold prevention, display)
         self._on_timer_mins = None
         self._off_timer_mins = None
         self._mold_prevention = False
         self._mold_duration = hitachi.HitachiAcMoldDuration.MINS_30
+        self._display = hitachi.HitachiAcDisplay.BRIGHT
 
         # Initialize dynamic attributes and feature flags
         self._update_supported_limits()
@@ -472,6 +523,25 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         self._last_button = hitachi.HitachiAcButton.MOLD
         await self.async_send_ir_command()
 
+    async def async_set_display(self, display: str) -> None:
+        """Set indoor unit LCD display brightness mode."""
+        display_map = {
+            "bright": hitachi.HitachiAcDisplay.BRIGHT,
+            "medium": hitachi.HitachiAcDisplay.MEDIUM,
+            "dim": hitachi.HitachiAcDisplay.DIM,
+            "off": hitachi.HitachiAcDisplay.OFF,
+        }
+        self._display = display_map.get(
+            display.lower(), hitachi.HitachiAcDisplay.BRIGHT
+        )
+        self._last_button = hitachi.HitachiAcButton.DISPLAY
+        await self.async_send_ir_command()
+
+    async def async_set_pm25(self, active: bool = True) -> None:
+        """Trigger PM2.5 air purifying command."""
+        self._last_button = hitachi.HitachiAcButton.PM25
+        await self.async_send_ir_command()
+
     async def async_send_ir_command(self) -> None:
         """Translate HA state to Hitachi protocol command and transmit."""
         is_on = self._attr_hvac_mode != HVACMode.OFF
@@ -555,6 +625,7 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
             power=is_on,
             swing_v=is_swing_v,
             swing_h=current_swing_h,
+            display=self._display,
             off_timer_mins=self._off_timer_mins,
             on_timer_mins=self._on_timer_mins,
             mold_prevention=self._mold_prevention,

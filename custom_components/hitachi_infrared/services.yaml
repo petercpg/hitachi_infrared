@@ -1,0 +1,93 @@
+set_display:
+  name: Set Display Brightness
+  description: Control the indoor unit LCD screen display / backlight mode.
+  target:
+    entity:
+      domain: climate
+  fields:
+    display:
+      name: Display Mode
+      description: Display brightness level (bright, medium, dim, off).
+      required: true
+      selector:
+        select:
+          options:
+            - label: Bright (全亮)
+              value: bright
+            - label: Medium (中亮)
+              value: medium
+            - label: Dim (微亮)
+              value: dim
+            - label: Off (關閉螢幕)
+              value: "off"
+
+set_pm25:
+  name: Trigger PM2.5 Air Purifying
+  description: Transmit PM2.5 air purifying command to the Hitachi AC.
+  target:
+    entity:
+      domain: climate
+  fields:
+    active:
+      name: Active
+      description: Enable or disable PM2.5 purifying feature.
+      default: true
+      selector:
+        boolean: {}
+
+set_timer:
+  name: Set Timer
+  description: Schedule ON timer when OFF, or OFF timer when ON.
+  target:
+    entity:
+      domain: climate
+  fields:
+    minutes:
+      name: Minutes
+      description: Timer duration in minutes.
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: min
+
+cancel_timer:
+  name: Cancel Timer
+  description: Cancel active timer schedule.
+  target:
+    entity:
+      domain: climate
+
+run_clean:
+  name: Run Freeze Clean (凍結洗淨)
+  description: Trigger freeze clean cycle (allowed only when AC is OFF).
+  target:
+    entity:
+      domain: climate
+
+set_mold_prevention:
+  name: Set Mold Prevention (機體防霉)
+  description: Enable or disable mold prevention feature.
+  target:
+    entity:
+      domain: climate
+  fields:
+    active:
+      name: Active
+      description: Enable or disable mold prevention.
+      required: true
+      selector:
+        boolean: {}
+    duration:
+      name: Duration (Minutes)
+      description: Duration in minutes (10, 20, 30, 45, 60).
+      default: 30
+      selector:
+        select:
+          options:
+            - "10"
+            - "20"
+            - "30"
+            - "45"
+            - "60"
