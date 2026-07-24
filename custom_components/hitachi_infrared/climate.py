@@ -22,6 +22,7 @@ from infrared_protocols.commands import hitachi
 from .const import (
     CONF_COOL_ONLY,
     CONF_EMITTER_ENTITY_ID,
+    CONF_HUMIDITY_SENSOR,
     CONF_PROTOCOL,
     CONF_TEMPERATURE_SENSOR,
 )
@@ -38,6 +39,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
     name = config.get("name", "日立冷氣")
     remote_entity = config.get("remote_entity")
     temp_sensor = config.get("temperature_sensor")  # 外部溫度感測器實體 ID
+    humidity_sensor = config.get("humidity_sensor")  # 外部濕度感測器實體 ID
     encoding = config.get("encoding", "broadlink")  # broadlink, pronto, raw
     unique_id = config.get("unique_id")
     protocol = config.get("protocol", "ac344")
@@ -49,6 +51,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
                 name,
                 remote_entity,
                 temp_sensor,
+                humidity_sensor,
                 encoding,
                 unique_id,
                 protocol,
@@ -69,6 +72,7 @@ async def async_setup_entry(
     name = config.get("name", "日立冷氣")
     remote_entity = config.get(CONF_EMITTER_ENTITY_ID)
     temp_sensor = config.get(CONF_TEMPERATURE_SENSOR)
+    humidity_sensor = config.get(CONF_HUMIDITY_SENSOR)
     protocol = config.get(CONF_PROTOCOL, "ac344")
     cool_only = config.get(CONF_COOL_ONLY, False)
     encoding = config.get("encoding", "broadlink")
@@ -81,6 +85,7 @@ async def async_setup_entry(
                 name=name,
                 remote_entity=remote_entity,
                 temp_sensor=temp_sensor,
+                humidity_sensor=humidity_sensor,
                 encoding=encoding,
                 unique_id=unique_id,
                 protocol=protocol,
@@ -97,6 +102,7 @@ class HitachiIRClimate(ClimateEntity):
         name,
         remote_entity,
         temp_sensor=None,
+        humidity_sensor=None,
         encoding="broadlink",
         unique_id=None,
         protocol="ac344",
@@ -106,6 +112,7 @@ class HitachiIRClimate(ClimateEntity):
         self._attr_name = name
         self._remote_entity = remote_entity
         self._temp_sensor = temp_sensor
+        self._humidity_sensor = humidity_sensor
         self._encoding = encoding
         self._protocol = protocol
         self._cool_only = cool_only
@@ -125,6 +132,7 @@ class HitachiIRClimate(ClimateEntity):
             self._attr_unique_id = f"climate_{clean_remote}"
 
         self._attr_current_temperature = None
+        self._attr_current_humidity = None
         self._last_button = hitachi.HitachiAcButton.POWER
 
         # 同步底層的溫度極限
@@ -238,7 +246,7 @@ class HitachiIRClimate(ClimateEntity):
                 self._attr_fan_mode = FAN_AUTO
 
     async def async_added_to_hass(self) -> None:
-        """當實體被加入到 hass 時，設定外部溫度感測器監聽器."""
+        """當實體被加入到 hass 時，設定外部溫度與濕度感測器監聽器."""
         await super().async_added_to_hass()
 
         if self._temp_sensor:
@@ -249,18 +257,37 @@ class HitachiIRClimate(ClimateEntity):
                     self._attr_current_temperature = float(state.state)
 
             # 監聽狀態變更
-            def _async_sensor_changed(event) -> None:
+            def _async_temp_sensor_changed(event) -> None:
                 new_state = event.data.get("new_state")
                 if new_state and new_state.state not in ["unknown", "unavailable"]:
-                    try:
+                    with contextlib.suppress(ValueError):
                         self._attr_current_temperature = float(new_state.state)
                         self.async_write_ha_state()
-                    except ValueError:
-                        pass
 
             self.async_on_remove(
                 async_track_state_change_event(
-                    self.hass, [self._temp_sensor], _async_sensor_changed
+                    self.hass, [self._temp_sensor], _async_temp_sensor_changed
+                )
+            )
+
+        if self._humidity_sensor:
+            # 取得初始狀態
+            state = self.hass.states.get(self._humidity_sensor)
+            if state and state.state not in ["unknown", "unavailable"]:
+                with contextlib.suppress(ValueError):
+                    self._attr_current_humidity = float(state.state)
+
+            # 監聽狀態變更
+            def _async_humidity_sensor_changed(event) -> None:
+                new_state = event.data.get("new_state")
+                if new_state and new_state.state not in ["unknown", "unavailable"]:
+                    with contextlib.suppress(ValueError):
+                        self._attr_current_humidity = float(new_state.state)
+                        self.async_write_ha_state()
+
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [self._humidity_sensor], _async_humidity_sensor_changed
                 )
             )
 

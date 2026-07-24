@@ -8,8 +8,10 @@
           "name": "Name",
           "emitter_entity_id": "Infrared / Remote Entity",
           "temperature_sensor": "Temperature Sensor Entity (Optional)",
+          "humidity_sensor": "Humidity Sensor Entity (Optional)",
           "protocol": "Protocol",
           "cool_only": "Cool Only"
+
         }
       }
     },

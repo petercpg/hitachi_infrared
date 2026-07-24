@@ -12,6 +12,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_COOL_ONLY,
     CONF_EMITTER_ENTITY_ID,
+    CONF_HUMIDITY_SENSOR,
     CONF_PROTOCOL,
     CONF_TEMPERATURE_SENSOR,
     DOMAIN,
@@ -48,6 +49,9 @@ class HitachiIRConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     EntitySelectorConfig(domain=["infrared", "remote"])
                 ),
                 vol.Optional(CONF_TEMPERATURE_SENSOR): EntitySelector(
+                    EntitySelectorConfig(domain="sensor")
+                ),
+                vol.Optional(CONF_HUMIDITY_SENSOR): EntitySelector(
                     EntitySelectorConfig(domain="sensor")
                 ),
                 vol.Required(CONF_PROTOCOL, default="ac344"): vol.In(
