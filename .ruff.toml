@@ -27,7 +27,9 @@ ignore = [
     "ARG", # Ignore unused arguments warnings (e.g. discovery_info in HA setup_platform)
     "D", # Ignore docstring format/missing warnings to avoid style noise
     "PLR0913", # Ignore too many arguments in constructor/function definition
+    "PLR0917", # Ignore too many positional arguments in constructor/function definition
     "BLE", # Ignore blind exception catch warnings in fallback debug handlers
+    "CPY", # Ignore missing copyright notice at top of file
 ]
 
 [lint.flake8-pytest-style]
