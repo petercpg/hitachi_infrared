@@ -39,6 +39,7 @@ class HitachiIRConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
 
             title = user_input.get("name") or DEFAULT_NAME
+            user_input.setdefault(CONF_PROTOCOL, "ac344")
             return self.async_create_entry(
                 title=title,
                 data=user_input,
@@ -55,9 +56,6 @@ class HitachiIRConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Optional(CONF_HUMIDITY_SENSOR): EntitySelector(
                     EntitySelectorConfig(domain="sensor")
-                ),
-                vol.Required(CONF_PROTOCOL, default="ac344"): vol.In(
-                    ["ac344", "ac280"]
                 ),
                 vol.Required(CONF_COOL_ONLY, default=False): bool,
             }
