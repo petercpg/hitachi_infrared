@@ -1,60 +1,103 @@
-# Notice
+# Hitachi Infrared Remote Integration for Home Assistant
 
-The component and platforms in this repository are not meant to be used by a
-user, but as a "blueprint" that custom component developers can build
-upon, to make more awesome stuff.
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/default)
+[![GitHub Release](https://img.shields.io/github/v/release/petercpg/hitachi_infrared)](https://github.com/petercpg/hitachi_infrared/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-HAVE FUN! 😎
+A Home Assistant custom component that provides comprehensive climate control for Hitachi Air Conditioners and Infrared Remotes via IR blasters (Broadlink, Xiaomi MiIO / Pronto, ESPHome, or native HA Infrared transmitters).
 
-## Why?
+---
 
-This is simple, by having custom_components look (README + structure) the same
-it is easier for developers to help each other and for users to start using them.
+## ✨ Features
 
-If you are a developer and you want to add things to this "blueprint" that you think more
-developers will have use for, please open a PR to add it :)
+- 🌡️ **Full Climate Control**: Supports Cooling, Heating, Dehumidification (Dry), Fan Only, and Auto modes.
+- 🌀 **Multi-Stage Fan & Swing**: Full 5-stage fan speeds (Auto, High, Medium, Low, Silent) and vertical / 6-stage horizontal swing control.
+- 📡 **Universal Emitter Compatibility**: Supports native HA `infrared` transmitters, Broadlink Base64 (`b64:`), Pronto Hex, and Raw Microsecond timings (ESPHome/GPIO).
+- 🌡️💧 **External Sensor Binding**: Bind external temperature and humidity sensor entities for real-time room ambient tracking.
+- ⏱️ **Timer & Special Functions**: Supports Off-Timer / On-Timer scheduling, Mold Prevention (防霉), and Clean Cycle (凍結洗淨).
+- 🌐 **Multi-Language Support**: Fully localized in English (`en`) and Traditional Chinese (`zh-Hant`).
+- ⚙️ **Config Flow & YAML**: Easy UI configuration via Config Flow or traditional `configuration.yaml`.
 
-## What?
+---
 
-This repository contains multiple files, here is a overview:
+## 🛠️ Supported Protocols
 
-File | Purpose | Documentation
--- | -- | --
-`.devcontainer.json` | Used for development/testing with Visual Studio Code. | [Documentation](https://code.visualstudio.com/docs/remote/containers)
-`.github/renovate.json` | Dependency update configuration for Renovate (enabled by default). | [Documentation](https://docs.renovatebot.com/configuration-options/)
-`.github/_dependabot.yml` | Dependency update configuration for Dependabot (disabled, see "Dependency updates" below). | [Documentation](https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file)
-`.github/ISSUE_TEMPLATE/*.yml` | Templates for the issue tracker | [Documentation](https://help.github.com/en/github/building-a-strong-community/configuring-issue-templates-for-your-repository)
-`custom_components/integration_blueprint/*` | Integration files, this is where everything happens. | [Documentation](https://developers.home-assistant.io/docs/creating_component_index)
-`CONTRIBUTING.md` | Guidelines on how to contribute. | [Documentation](https://help.github.com/en/github/building-a-strong-community/setting-guidelines-for-repository-contributors)
-`LICENSE` | The license file for the project. | [Documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/licensing-a-repository)
-`README.md` | The file you are reading now, should contain info about the integration, installation and configuration instructions. | [Documentation](https://help.github.com/en/github/writing-on-github/basic-writing-and-formatting-syntax)
-`requirements_dev.txt` | Python packages used for development/testing this integration (also installs lint tooling via `requirements_lint.txt`). | [Documentation](https://pip.pypa.io/en/stable/user_guide/#requirements-files)
-`requirements_lint.txt` | Python packages used to lint this integration (installed by the Lint CI job). | [Documentation](https://pip.pypa.io/en/stable/user_guide/#requirements-files)
-`requirements_common.txt` | Python packages common to CI and local dev, installed first so any pip upgrade completes before other dependencies (e.g. a modern pip). | [Documentation](https://pip.pypa.io/en/stable/user_guide/#requirements-files)
+This integration utilizes the [`infrared-protocols`](https://github.com/petercpg/infrared-protocols) library:
+- **`ac344` (Default & Current Supported Protocol)**: 344-bit (43 Bytes) frame format used by most Taiwanese Hitachi AC remotes.
 
-## Dependency updates
 
-This template ships with configuration for **two** dependency update tools. Pick
-**one** and remove or disable the other:
+---
 
-- **Renovate** (`.github/renovate.json`) is enabled by default.
-- **Dependabot** (`.github/_dependabot.yml`) is included but disabled — the `_`
-  prefix means GitHub ignores it. To use Dependabot instead, rename the file
-  back to `.github/dependabot.yml` and delete `.github/renovate.json`.
+## 📦 Installation
 
-## How?
+### Option 1: Via HACS (Recommended)
 
-1. Create a new repository in GitHub, using this repository as a template by clicking the "Use this template" button in the GitHub UI.
-1. Open your new repository in Visual Studio Code devcontainer (Preferably with the "`Dev Containers: Clone Repository in Named Container Volume...`" option).
-1. Rename all instances of the `integration_blueprint` to `custom_components/<your_integration_domain>` (e.g. `custom_components/awesome_integration`).
-1. Rename all instances of the `Integration Blueprint` to `<Your Integration Name>` (e.g. `Awesome Integration`).
-1. Run the `scripts/develop` to start HA and test out your new integration.
+1. Ensure [HACS](https://hacs.xyz/) is installed in your Home Assistant.
+2. Open HACS ➔ **Integrations**.
+3. Click the three dots in the top right corner ➔ **Custom repositories**.
+4. Add Repository URL: `https://github.com/petercpg/hitachi_infrared`, Category: **Integration**.
+5. Search for **Hitachi Infrared Remote Integration** and click **Download**.
+6. Restart Home Assistant.
 
-## Next steps
+### Option 2: Manual Installation
 
-These are some next steps you may want to look into:
-- Add tests to your integration, [`pytest-homeassistant-custom-component`](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component) can help you get started.
-- Add brand images (logo/icon).
-- Create your first release.
-- Share your integration on the [Home Assistant Forum](https://community.home-assistant.io/).
-- Submit your integration to [HACS](https://hacs.xyz/docs/publish/start).
+1. Download the latest release source code.
+2. Copy the `custom_components/hitachi_infrared` directory to your Home Assistant's `config/custom_components/` directory.
+3. Restart Home Assistant.
+
+---
+
+## ⚙️ Configuration
+
+### Method 1: UI Configuration (Config Flow)
+
+1. In Home Assistant, go to **Settings ➔ Devices & Services**.
+2. Click **Add Integration** and search for **Hitachi Infrared Remote**.
+3. Fill in the setup form:
+   - **Name (Optional)**: e.g., `Living Room AC` (defaults to localized `Hitachi AC` / `日立冷氣`).
+   - **Infrared / Remote Entity**: Select your transmitter entity (e.g., `remote.broadlink_rm4_mini`).
+   - **Temperature Sensor Entity (Optional)**: Select your external temperature sensor (e.g., `sensor.living_room_temperature`).
+   - **Humidity Sensor Entity (Optional)**: Select your external humidity sensor (e.g., `sensor.living_room_humidity`).
+   - **Cool Only**: Check if your AC is a cooling-only unit (hides HEAT mode).
+
+
+
+### Method 2: YAML Configuration
+
+Add the following snippet to your `configuration.yaml`:
+
+```yaml
+climate:
+  - platform: hitachi_infrared
+    name: "Living Room AC"
+    remote_entity: "remote.broadlink_rm4_mini"
+    temperature_sensor: "sensor.living_room_temperature"
+    humidity_sensor: "sensor.living_room_humidity"
+    encoding: "broadlink" # broadlink, pronto, or raw
+    cool_only: false
+```
+
+---
+
+## 🔍 Debugging & System Logs
+
+To enable verbose debug logging for this integration, add the following to your `configuration.yaml` or use the **Enable Debug Logging** option under **Settings ➔ Devices & Services ➔ Hitachi Infrared Remote ➔ (...)**:
+
+```yaml
+logger:
+  default: info
+  logs:
+    custom_components.hitachi_infrared: debug
+```
+
+When enabled, integration startup logs will print version and Git commit information for `infrared-protocols`:
+
+```text
+DEBUG [custom_components.hitachi_infrared] Loaded infrared-protocols: version=8.2.0, path=..., git_url=https://github.com/petercpg/infrared-protocols.git, ref=add-hitachi-ac344, commit=04702a6de226e7667e8bb72c2732fcdd5e26f53a
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
