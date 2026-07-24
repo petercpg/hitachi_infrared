@@ -29,6 +29,7 @@ from infrared_protocols.commands import hitachi
 from .const import (
     CONF_COOL_ONLY,
     CONF_EMITTER_ENTITY_ID,
+    CONF_ENCODING,
     CONF_HUMIDITY_SENSOR,
     CONF_PROTOCOL,
     CONF_TEMPERATURE_SENSOR,
@@ -55,11 +56,10 @@ def _async_register_services() -> None:
     )
     platform.async_register_entity_service(
         "set_pm25",
-        {
-            vol.Optional("active", default=True): cv.boolean,
-        },
+        {},
         "async_set_pm25",
     )
+
     platform.async_register_entity_service(
         "set_timer",
         {
@@ -135,7 +135,7 @@ async def async_setup_entry(
     humidity_sensor = config.get(CONF_HUMIDITY_SENSOR)
     protocol = config.get(CONF_PROTOCOL, "ac344")
     cool_only = config.get(CONF_COOL_ONLY, False)
-    encoding = config.get("encoding", "broadlink")
+    encoding = config.get(CONF_ENCODING, config.get("encoding", "broadlink"))
     unique_id = config_entry.unique_id or config_entry.entry_id
 
     async_add_entities(
@@ -537,8 +537,8 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         self._last_button = hitachi.HitachiAcButton.DISPLAY
         await self.async_send_ir_command()
 
-    async def async_set_pm25(self, active: bool = True) -> None:
-        """Trigger PM2.5 air purifying command."""
+    async def async_set_pm25(self) -> None:
+        """Trigger PM2.5 reading display command on indoor unit panel."""
         self._last_button = hitachi.HitachiAcButton.PM25
         await self.async_send_ir_command()
 

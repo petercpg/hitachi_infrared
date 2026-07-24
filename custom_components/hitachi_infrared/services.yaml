@@ -22,18 +22,12 @@ set_display:
               value: "off"
 
 set_pm25:
-  name: Trigger PM2.5 Air Purifying
-  description: Transmit PM2.5 air purifying command to the Hitachi AC.
+  name: Display PM2.5 Value (顯示 PM2.5 數值)
+  description: Toggle PM2.5 reading display on the indoor unit panel.
   target:
     entity:
       domain: climate
-  fields:
-    active:
-      name: Active
-      description: Enable or disable PM2.5 purifying feature.
-      default: true
-      selector:
-        boolean: {}
+
 
 set_timer:
   name: Set Timer
