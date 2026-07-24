@@ -15,6 +15,7 @@ from .const import (
     CONF_HUMIDITY_SENSOR,
     CONF_PROTOCOL,
     CONF_TEMPERATURE_SENSOR,
+    DEFAULT_NAME,
     DOMAIN,
 )
 
@@ -37,14 +38,15 @@ class HitachiIRConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             self._abort_if_unique_id_configured()
 
+            title = user_input.get("name") or DEFAULT_NAME
             return self.async_create_entry(
-                title=user_input["name"],
+                title=title,
                 data=user_input,
             )
 
         data_schema = vol.Schema(
             {
-                vol.Required("name", default="日立冷氣"): str,
+                vol.Optional("name"): str,
                 vol.Required(CONF_EMITTER_ENTITY_ID): EntitySelector(
                     EntitySelectorConfig(domain=["infrared", "remote"])
                 ),

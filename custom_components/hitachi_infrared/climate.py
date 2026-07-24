@@ -36,14 +36,21 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
-    name = config.get("name", "日立冷氣")
+    """Set up the Hitachi Infrared Remote climate platform from YAML."""
+    name = config.get("name")
     remote_entity = config.get("remote_entity")
-    temp_sensor = config.get("temperature_sensor")  # 外部溫度感測器實體 ID
-    humidity_sensor = config.get("humidity_sensor")  # 外部濕度感測器實體 ID
+    temp_sensor = config.get(
+        "temperature_sensor"
+    )  # External temperature sensor entity ID
+    humidity_sensor = config.get(
+        "humidity_sensor"
+    )  # External humidity sensor entity ID
     encoding = config.get("encoding", "broadlink")  # broadlink, pronto, raw
     unique_id = config.get("unique_id")
     protocol = config.get("protocol", "ac344")
-    cool_only = config.get("cool_only", False)  # 是否為冷專空調 (預設為 False 冷暖)
+    cool_only = config.get(
+        "cool_only", False
+    )  # Cool-only AC flag (default False for Heat/Cool)
     add_entities(
         [
             HitachiIRClimate(
@@ -69,7 +76,7 @@ async def async_setup_entry(
     """Set up the Hitachi Infrared Remote climate platform from a config entry."""
 
     config = config_entry.data
-    name = config.get("name", "日立冷氣")
+    name = config.get("name")
     remote_entity = config.get(CONF_EMITTER_ENTITY_ID)
     temp_sensor = config.get(CONF_TEMPERATURE_SENSOR)
     humidity_sensor = config.get(CONF_HUMIDITY_SENSOR)
@@ -96,11 +103,15 @@ async def async_setup_entry(
 
 
 class HitachiIRClimate(ClimateEntity):
+    """Representation of a Hitachi Infrared Climate entity."""
+
+    _attr_has_entity_name = True
+
     def __init__(
         self,
         hass,
-        name,
-        remote_entity,
+        name=None,
+        remote_entity=None,
         temp_sensor=None,
         humidity_sensor=None,
         encoding="broadlink",
@@ -108,6 +119,7 @@ class HitachiIRClimate(ClimateEntity):
         protocol="ac344",
         cool_only=False,
     ) -> None:
+        """Initialize the Hitachi IR Climate entity."""
         self.hass = hass
         self._attr_name = name
         self._remote_entity = remote_entity
@@ -135,13 +147,13 @@ class HitachiIRClimate(ClimateEntity):
         self._attr_current_humidity = None
         self._last_button = hitachi.HitachiAcButton.POWER
 
-        # 同步底層的溫度極限
+        # Sync temperature limits from protocol definition
         self._attr_min_temp = hitachi.MIN_TEMP
         self._attr_max_temp = hitachi.MAX_TEMP
         self._attr_temperature_unit = "°C"
         self._attr_target_temperature_step = 1
 
-        # 宣告支援的模式 (根據是否冷專決定是否加入暖氣模式)
+        # Supported HVAC modes (add HEAT mode if not cool-only)
         self._attr_hvac_modes = [
             HVACMode.OFF,
             HVACMode.COOL,
@@ -152,10 +164,10 @@ class HitachiIRClimate(ClimateEntity):
         if not self._cool_only:
             self._attr_hvac_modes.append(HVACMode.HEAT)
 
-        # 宣告支援的擺風模式 (上下擺風)
+        # Supported vertical swing modes
         self._attr_swing_modes = [SWING_OFF, SWING_VERTICAL]
 
-        # 宣告支援的左右擺風模式 (7 段去重為 6 種狀態)
+        # Supported horizontal swing modes (deduplicated 7 steps into 6 states)
         self._attr_swing_horizontal_modes = [
             "auto",
             "right_max",
@@ -165,34 +177,34 @@ class HitachiIRClimate(ClimateEntity):
             "left_max",
         ]
 
-        # 初始狀態設定
+        # Initial state defaults
         self._attr_hvac_mode = HVACMode.COOL
         self._attr_target_temperature = 26
         self._attr_fan_mode = FAN_AUTO
         self._attr_swing_mode = SWING_OFF
         self._attr_swing_horizontal_mode = "middle"
 
-        # 進階功能暫存器 (定時、防霉)
+        # Advanced feature states (timers, mold prevention)
         self._on_timer_mins = None
         self._off_timer_mins = None
         self._mold_prevention = False
         self._mold_duration = hitachi.HitachiAcMoldDuration.MINS_30
 
-        # 初始化動態屬性與限制
+        # Initialize dynamic attributes and feature flags
         self._update_supported_limits()
 
     def _update_supported_limits(self) -> None:
-        """根據目前的 HVAC 模式，動態調整支援的功能與風速選項."""
+        """Dynamically update supported features and fan modes based on current HVAC mode."""
         mode = self._attr_hvac_mode
 
         if mode == HVACMode.FAN_ONLY:
-            # 送風模式不支援調整溫度
+            # Target temperature is not supported in FAN_ONLY mode
             self._attr_supported_features = (
                 ClimateEntityFeature.FAN_MODE
                 | ClimateEntityFeature.SWING_MODE
                 | ClimateEntityFeature.SWING_HORIZONTAL_MODE
             )
-            # 送風風量只有 強、弱、微、靜音 (不含自動)
+            # FAN_ONLY mode fan speeds (excludes AUTO)
             self._attr_fan_modes = [FAN_HIGH, FAN_MEDIUM, FAN_LOW, "silent"]
             self._attr_target_temperature = None
             if self._attr_fan_mode not in self._attr_fan_modes:
@@ -205,10 +217,10 @@ class HitachiIRClimate(ClimateEntity):
                 | ClimateEntityFeature.SWING_MODE
                 | ClimateEntityFeature.SWING_HORIZONTAL_MODE
             )
-            # 自控模式風量只有 自動、微、靜音
+            # AUTO mode fan speeds
             self._attr_fan_modes = [FAN_AUTO, FAN_LOW, "silent"]
             if self._attr_target_temperature is None:
-                self._attr_target_temperature = 25  # 設為基準室溫 25
+                self._attr_target_temperature = 25  # Default reference temperature
             if self._attr_fan_mode not in self._attr_fan_modes:
                 self._attr_fan_mode = FAN_AUTO
 
@@ -219,7 +231,7 @@ class HitachiIRClimate(ClimateEntity):
                 | ClimateEntityFeature.SWING_MODE
                 | ClimateEntityFeature.SWING_HORIZONTAL_MODE
             )
-            # 除濕模式風量只有 微、靜音
+            # DRY mode fan speeds
             self._attr_fan_modes = [FAN_LOW, "silent"]
             if self._attr_target_temperature is None:
                 self._attr_target_temperature = 26
@@ -246,17 +258,17 @@ class HitachiIRClimate(ClimateEntity):
                 self._attr_fan_mode = FAN_AUTO
 
     async def async_added_to_hass(self) -> None:
-        """當實體被加入到 hass 時，設定外部溫度與濕度感測器監聽器."""
+        """Set up external temperature and humidity sensor state change listeners when entity is added."""
         await super().async_added_to_hass()
 
         if self._temp_sensor:
-            # 取得初始狀態
+            # Fetch initial state
             state = self.hass.states.get(self._temp_sensor)
             if state and state.state not in ["unknown", "unavailable"]:
                 with contextlib.suppress(ValueError):
                     self._attr_current_temperature = float(state.state)
 
-            # 監聽狀態變更
+            # Listen for state changes
             def _async_temp_sensor_changed(event) -> None:
                 new_state = event.data.get("new_state")
                 if new_state and new_state.state not in ["unknown", "unavailable"]:
@@ -271,13 +283,13 @@ class HitachiIRClimate(ClimateEntity):
             )
 
         if self._humidity_sensor:
-            # 取得初始狀態
+            # Fetch initial state
             state = self.hass.states.get(self._humidity_sensor)
             if state and state.state not in ["unknown", "unavailable"]:
                 with contextlib.suppress(ValueError):
                     self._attr_current_humidity = float(state.state)
 
-            # 監聽狀態變更
+            # Listen for state changes
             def _async_humidity_sensor_changed(event) -> None:
                 new_state = event.data.get("new_state")
                 if new_state and new_state.state not in ["unknown", "unavailable"]:
@@ -292,16 +304,16 @@ class HitachiIRClimate(ClimateEntity):
             )
 
     async def async_set_temperature(self, **kwargs) -> None:
-        """UI 調整溫度時觸發."""
+        """Set target temperature."""
         if ATTR_TEMPERATURE in kwargs:
             self._attr_target_temperature = int(kwargs[ATTR_TEMPERATURE])
             self._last_button = hitachi.HitachiAcButton.TEMPERATURE
             await self.async_send_ir_command()
 
     async def async_set_hvac_mode(self, hvac_mode) -> None:
-        """UI 切換模式或開關機時觸發."""
+        """Set HVAC mode."""
         if self._cool_only and hvac_mode == HVACMode.HEAT:
-            _LOGGER.error("冷專空調不支援暖氣模式！")
+            _LOGGER.error("Cool-only AC does not support HEAT mode")
             return
         old_mode = self._attr_hvac_mode
         self._attr_hvac_mode = hvac_mode
@@ -315,31 +327,31 @@ class HitachiIRClimate(ClimateEntity):
         await self.async_send_ir_command()
 
     async def async_set_fan_mode(self, fan_mode) -> None:
-        """UI 切換風速時觸發."""
+        """Set fan mode."""
         self._attr_fan_mode = fan_mode
         self._last_button = hitachi.HitachiAcButton.FAN
         await self.async_send_ir_command()
 
     async def async_set_swing_mode(self, swing_mode) -> None:
-        """UI 切換上下擺風時觸發."""
+        """Set vertical swing mode."""
         self._attr_swing_mode = swing_mode
         self._last_button = hitachi.HitachiAcButton.SWING_V
         await self.async_send_ir_command()
 
     async def async_set_swing_horizontal_mode(self, swing_horizontal_mode) -> None:
-        """UI 切換左右擺風時觸發."""
+        """Set horizontal swing mode."""
         self._attr_swing_horizontal_mode = swing_horizontal_mode
         self._last_button = hitachi.HitachiAcButton.SWING_H
         await self.async_send_ir_command()
 
     async def async_set_timer(self, minutes: int) -> None:
-        """簡易定時預約：開機時預約關機，關機時預約開機."""
+        """Set timer schedule (OFF timer when ON, ON timer when OFF)."""
         if self._attr_hvac_mode == HVACMode.OFF:
-            # 關機時設定 = 預約開機
+            # When OFF: schedule ON timer
             self._on_timer_mins = minutes
             self._off_timer_mins = None
         else:
-            # 開機時設定 = 預約關機
+            # When ON: schedule OFF timer
             self._off_timer_mins = minutes
             self._on_timer_mins = None
 
@@ -347,24 +359,24 @@ class HitachiIRClimate(ClimateEntity):
         await self.async_send_ir_command()
 
     async def async_cancel_timer(self) -> None:
-        """取消定時預約."""
+        """Cancel active timer schedule."""
         self._on_timer_mins = None
         self._off_timer_mins = None
         self._last_button = hitachi.HitachiAcButton.CANCEL_TIMER
         await self.async_send_ir_command()
 
     async def async_run_clean(self) -> None:
-        """啟動凍結洗淨 (限關機停機狀態)."""
+        """Run clean cycle (allowed only in OFF state)."""
         if self._attr_hvac_mode != HVACMode.OFF:
-            _LOGGER.error("凍結洗淨只能在關機狀態下執行！")
+            _LOGGER.error("Clean cycle can only be executed when HVAC is OFF")
             return
         self._last_button = hitachi.HitachiAcButton.CLEAN
         await self.async_send_ir_command()
 
     async def async_set_mold_prevention(self, active: bool, duration: int = 30) -> None:
-        """設定機體防霉功能與防霉時間 (限冷氣與除濕模式下)."""
+        """Set mold prevention feature and duration (COOL/DRY modes only)."""
         if self._attr_hvac_mode not in [HVACMode.COOL, HVACMode.DRY]:
-            _LOGGER.error("機體防霉功能僅能在冷氣或除濕模式下啟用！")
+            _LOGGER.error("Mold prevention can only be enabled in COOL or DRY mode")
             return
 
         self._mold_prevention = active
@@ -382,10 +394,10 @@ class HitachiIRClimate(ClimateEntity):
         await self.async_send_ir_command()
 
     async def async_send_ir_command(self) -> None:
-        """將 HA 狀態轉譯為 Hitachi 協議並發射."""
+        """Translate HA state to Hitachi protocol command and transmit."""
         is_on = self._attr_hvac_mode != HVACMode.OFF
 
-        # 模式對應
+        # HVAC mode mapping
         mode_mapping = {
             HVACMode.COOL: hitachi.HitachiAcMode.COOL,
             HVACMode.DRY: hitachi.HitachiAcMode.DRY,
@@ -398,7 +410,7 @@ class HitachiIRClimate(ClimateEntity):
             self._attr_hvac_mode, hitachi.HitachiAcMode.COOL
         )
 
-        # 【重點 3：風量對應】完整對應 5 段風速
+        # Fan speed mapping
         fan_mapping = {
             FAN_AUTO: hitachi.HitachiAcFanSpeed.AUTO,
             FAN_HIGH: hitachi.HitachiAcFanSpeed.HIGH,
@@ -410,9 +422,9 @@ class HitachiIRClimate(ClimateEntity):
             self._attr_fan_mode, hitachi.HitachiAcFanSpeed.AUTO
         )
 
-        # 溫度對應
+        # Temperature mapping
         if current_mode == hitachi.HitachiAcMode.AUTO:
-            # 自動模式：基於當下室溫決定偏移量 (溫差 = 設定目標溫度 - 當下室溫)
+            # AUTO mode: calculate offset relative to current ambient temperature
             base_temp = (
                 self._attr_current_temperature
                 if self._attr_current_temperature is not None
@@ -421,12 +433,12 @@ class HitachiIRClimate(ClimateEntity):
             temp_offset = round(self._attr_target_temperature - base_temp)
             target_temp = max(-3, min(3, temp_offset))
         elif current_mode == hitachi.HitachiAcMode.FAN_ONLY:
-            # 送風模式不發送溫度值 (傳入冷氣預設 27°C 作為填充以符合 Skeleton 要求，但 UI 不會顯示)
+            # FAN_ONLY mode does not transmit target temperature (filler 27°C used for payload structure)
             target_temp = 27
         else:
             target_temp = self._attr_target_temperature
 
-        # 擺動與左右擺風狀態
+        # Swing and horizontal swing state
         is_swing_v = self._attr_swing_mode == SWING_VERTICAL
         h_mapping = {
             "auto": hitachi.HitachiAcSwingH.AUTO,
@@ -440,14 +452,20 @@ class HitachiIRClimate(ClimateEntity):
             self._attr_swing_horizontal_mode, hitachi.HitachiAcSwingH.MIDDLE
         )
 
-        # 確定發射按鍵碼
+        # Determine button code to transmit
         button_code = hitachi.HitachiAcButton.POWER if not is_on else self._last_button
 
         _LOGGER.warning(
-            f"發送指令: 模式 {self._attr_hvac_mode}, 溫度 {target_temp}, 風量 {self._attr_fan_mode}, 上下擺風 {self._attr_swing_mode}, 左右擺風 {self._attr_swing_horizontal_mode}, 按鍵 {button_code.name}"
+            "Sending command: mode %s, temp %s, fan %s, swing_v %s, swing_h %s, button %s",
+            self._attr_hvac_mode,
+            target_temp,
+            self._attr_fan_mode,
+            self._attr_swing_mode,
+            self._attr_swing_horizontal_mode,
+            button_code.name,
         )
 
-        # 實例化指令物件 (支援未來透過 protocol 擴充不同型號協定)
+        # Instantiate command object based on configured protocol
         protocol_map = {
             "ac344": hitachi.HitachiAc344Command,
         }
@@ -466,18 +484,18 @@ class HitachiIRClimate(ClimateEntity):
             button=button_code,
         )
 
-        # 若是新版 HA 的 `infrared` 實體，直接透過內建的 `async_send_command` 傳遞 command 物件
+        # For HA infrared entity, send command object via async_send_command
         if self._remote_entity.startswith("infrared."):
             await infrared.async_send_command(
                 self.hass, self._remote_entity, command, context=self._context
             )
             return
 
-        # 取得微秒並進行編碼轉換 (傳統的 remote 實體)
+        # For traditional remote entity, get raw timings and encode payload
         raw_timings = command.get_raw_timings()
 
         if self._encoding == "broadlink":
-            # Broadlink Base64 編碼
+            # Broadlink Base64 encoding
             pulses = []
             for t in raw_timings:
                 val = round(abs(t) / 26.9)
@@ -492,7 +510,7 @@ class HitachiIRClimate(ClimateEntity):
             command_payload = f"b64:{b64_code}"
 
         elif self._encoding == "pronto":
-            # Pronto Hex 編碼 (適用於小米紅外線/Xiaomi MiIO 遙控器等)
+            # Pronto Hex encoding (for Xiaomi MiIO IR remotes, etc.)
             frequency = 38000
             freq_div = round(1000000 / (frequency * 0.241246))
             freq_hex = f"{freq_div:04x}"
@@ -513,10 +531,10 @@ class HitachiIRClimate(ClimateEntity):
             command_payload = " ".join(pronto_parts)
 
         else:
-            # 原始微秒整數陣列 (適用於 ESPHome/GPIO 等)
+            # Raw microsecond timing array (for ESPHome/GPIO)
             command_payload = [abs(t) for t in raw_timings]
 
-        # 發射到傳統的 remote 實體上
+        # Transmit command to traditional remote entity
         await self.hass.services.async_call(
             "remote",
             "send_command",

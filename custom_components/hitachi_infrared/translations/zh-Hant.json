@@ -5,18 +5,24 @@
         "title": "日立冷氣紅外線遙控整合",
         "description": "設定您的日立冷氣紅外線遙控器實體。",
         "data": {
-          "name": "名稱",
+          "name": "名稱（選填）",
           "emitter_entity_id": "紅外線發射器實體",
           "temperature_sensor": "溫度感測器實體（選填）",
           "humidity_sensor": "濕度感測器實體（選填）",
           "protocol": "協定",
           "cool_only": "僅冷氣模式（冷專）"
-
         }
       }
     },
     "abort": {
       "already_configured": "此發射器已設定過。"
+    }
+  },
+  "entity": {
+    "climate": {
+      "hitachi_infrared": {
+        "name": "日立冷氣"
+      }
     }
   }
 }
