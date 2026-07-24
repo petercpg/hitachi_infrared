@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from homeassistant.components import infrared
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
+    ATTR_FAN_MODE,
+    ATTR_SWING_MODE,
     FAN_AUTO,
     FAN_HIGH,
     FAN_LOW,
@@ -18,6 +20,7 @@ from homeassistant.components.climate.const import (
 from homeassistant.const import ATTR_TEMPERATURE
 from homeassistant.core import callback
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.restore_state import RestoreEntity
 from infrared_protocols.commands import hitachi
 
 from .const import (
@@ -103,7 +106,7 @@ async def async_setup_entry(
     )
 
 
-class HitachiIRClimate(ClimateEntity):
+class HitachiIRClimate(ClimateEntity, RestoreEntity):
     """Representation of a Hitachi Infrared Climate entity."""
 
     _attr_has_entity_name = True
@@ -293,8 +296,45 @@ class HitachiIRClimate(ClimateEntity):
                 self._attr_fan_mode = FAN_AUTO
 
     async def async_added_to_hass(self) -> None:
-        """Set up external temperature and humidity sensor state change listeners when entity is added."""
+        """Set up external listeners and restore last state when entity is added."""
         await super().async_added_to_hass()
+
+        # Restore last state after HA restart or integration reload
+        if (last_state := await self.async_get_last_state()) is not None:
+            if last_state.state in self._attr_hvac_modes:
+                self._attr_hvac_mode = HVACMode(last_state.state)
+
+            if (
+                ATTR_TEMPERATURE in last_state.attributes
+                and last_state.attributes[ATTR_TEMPERATURE] is not None
+            ):
+                with contextlib.suppress(ValueError, TypeError):
+                    self._attr_target_temperature = int(
+                        last_state.attributes[ATTR_TEMPERATURE]
+                    )
+
+            if (
+                ATTR_FAN_MODE in last_state.attributes
+                and last_state.attributes[ATTR_FAN_MODE] in self._attr_fan_modes
+            ):
+                self._attr_fan_mode = last_state.attributes[ATTR_FAN_MODE]
+
+            if (
+                ATTR_SWING_MODE in last_state.attributes
+                and last_state.attributes[ATTR_SWING_MODE] in self._attr_swing_modes
+            ):
+                self._attr_swing_mode = last_state.attributes[ATTR_SWING_MODE]
+
+            if (
+                "swing_horizontal_mode" in last_state.attributes
+                and last_state.attributes["swing_horizontal_mode"]
+                in self._attr_swing_horizontal_modes
+            ):
+                self._attr_swing_horizontal_mode = last_state.attributes[
+                    "swing_horizontal_mode"
+                ]
+
+        self._update_supported_limits()
 
         if self._temp_sensor:
             # Fetch initial state
