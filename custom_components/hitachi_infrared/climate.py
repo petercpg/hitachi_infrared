@@ -16,6 +16,7 @@ from homeassistant.components.climate.const import (
     HVACMode,
 )
 from homeassistant.const import ATTR_TEMPERATURE
+from homeassistant.core import callback
 from homeassistant.helpers.event import async_track_state_change_event
 from infrared_protocols.commands import hitachi
 
@@ -269,6 +270,7 @@ class HitachiIRClimate(ClimateEntity):
                     self._attr_current_temperature = float(state.state)
 
             # Listen for state changes
+            @callback
             def _async_temp_sensor_changed(event) -> None:
                 new_state = event.data.get("new_state")
                 if new_state and new_state.state not in ["unknown", "unavailable"]:
@@ -290,6 +292,7 @@ class HitachiIRClimate(ClimateEntity):
                     self._attr_current_humidity = float(state.state)
 
             # Listen for state changes
+            @callback
             def _async_humidity_sensor_changed(event) -> None:
                 new_state = event.data.get("new_state")
                 if new_state and new_state.state not in ["unknown", "unavailable"]:
