@@ -14,27 +14,25 @@
         }
       }
     },
-    "options": {
-      "step": {
-        "init": {
-          "title": "Hitachi IR Options",
-          "description": "Update infrared remote options.",
-          "data": {
-            "name": "Name (Optional)",
-            "emitter_entity_id": "Infrared / Remote Entity",
-            "encoding": "IR Signal Encoding",
-            "temperature_sensor": "Temperature Sensor Entity (Optional)",
-            "humidity_sensor": "Humidity Sensor Entity (Optional)",
-            "cool_only": "Cool Only"
-          }
-
-        }
-      }
-    },
     "abort": {
       "already_configured": "This emitter is already configured."
     }
-
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hitachi IR Options",
+        "description": "Update infrared remote options.",
+        "data": {
+          "name": "Name (Optional)",
+          "emitter_entity_id": "Infrared / Remote Entity",
+          "encoding": "IR Signal Encoding",
+          "temperature_sensor": "Temperature Sensor Entity (Optional)",
+          "humidity_sensor": "Humidity Sensor Entity (Optional)",
+          "cool_only": "Cool Only"
+        }
+      }
+    }
   },
   "entity": {
     "climate": {
