@@ -128,8 +128,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Hitachi Infrared Remote climate platform from a config entry."""
 
-    config = config_entry.data
+    config = {**config_entry.data, **config_entry.options}
     name = config.get("name")
+
     remote_entity = config.get(CONF_EMITTER_ENTITY_ID)
     temp_sensor = config.get(CONF_TEMPERATURE_SENSOR)
     humidity_sensor = config.get(CONF_HUMIDITY_SENSOR)
