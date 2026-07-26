@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -70,11 +72,29 @@ jobs:
           zip -r ../hitachi_infrared.zip hitachi_infrared
           cd ..
 
-      - name: Create Release and Upload Asset via GitHub CLI
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: hitachi_infrared.zip
+
+      - name: Generate SBOM (SPDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-path: hitachi_infrared.zip
+          sbom-path: sbom.spdx.json
+
+      - name: Create Release and Upload Assets via GitHub CLI
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ env.TAG_NAME }}" hitachi_infrared.zip \
+          gh release create "${{ env.TAG_NAME }}" hitachi_infrared.zip sbom.spdx.json \
             --title "Release ${{ env.TAG_NAME }}" \
             --generate-notes
+
 
