@@ -604,15 +604,19 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         # Determine button code to transmit
         button_code = hitachi.HitachiAcButton.POWER if not is_on else self._last_button
 
-        _LOGGER.warning(
-            "Sending command: mode %s, temp %s, fan %s, swing_v %s, swing_h %s, button %s",
-            self._attr_hvac_mode,
-            target_temp,
-            self._attr_fan_mode,
-            self._attr_swing_mode,
-            self._attr_swing_horizontal_mode,
-            button_code.name,
+        log_msg = (
+            f"Sending command: mode {self._attr_hvac_mode}, temp {target_temp}, "
+            f"fan {self._attr_fan_mode}, swing_v {self._attr_swing_mode}, "
+            f"swing_h {self._attr_swing_horizontal_mode}, button {button_code.name}"
         )
+        _LOGGER.debug(log_msg)
+
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            self.hass.components.persistent_notification.async_create(
+                message=log_msg,
+                title=f"Hitachi IR ({self.name})",
+                notification_id=f"hitachi_ir_debug_{self.entity_id}",
+            )
 
         # Instantiate command object based on configured protocol
         protocol_map = {
