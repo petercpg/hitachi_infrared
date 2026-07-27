@@ -4,7 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import voluptuous as vol
-from homeassistant.components import infrared
+from homeassistant.components import infrared, persistent_notification
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
     ATTR_FAN_MODE,
@@ -612,7 +612,8 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         _LOGGER.debug(log_msg)
 
         if _LOGGER.isEnabledFor(logging.DEBUG):
-            self.hass.components.persistent_notification.async_create(
+            persistent_notification.async_create(
+                self.hass,
                 message=log_msg,
                 title=f"Hitachi IR ({self.name})",
                 notification_id=f"hitachi_ir_debug_{self.entity_id}",
