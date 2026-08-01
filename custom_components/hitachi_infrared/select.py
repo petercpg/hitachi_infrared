@@ -8,6 +8,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from .const import (
     CONF_ENABLE_DISPLAY_CONTROL,
     CONF_ENABLE_MOLD_PREVENTION,
+    CONF_ENABLE_SOMATOSENSORY,
     DEFAULT_NAME,
     DOMAIN,
 )
@@ -45,6 +46,15 @@ async def async_setup_entry(
             HitachiMoldDurationSelect(
                 climate_entity=climate_entity,
                 unique_id=f"{unique_id}_mold_duration_select",
+                device_name=name,
+            )
+        )
+
+    if config.get(CONF_ENABLE_SOMATOSENSORY, False):
+        entities.append(
+            HitachiSomatosensorySelect(
+                climate_entity=climate_entity,
+                unique_id=f"{unique_id}_somatosensory_select",
                 device_name=name,
             )
         )
@@ -120,6 +130,49 @@ class HitachiMoldDurationSelect(SelectEntity):
         if self._climate:
             active = getattr(self._climate, "mold_prevention", False)
             await self._climate.async_set_mold_prevention(active, int(option))
+            self.async_write_ha_state()
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device info for linking entity."""
+        return DeviceInfo(
+            identifiers={
+                (
+                    DOMAIN,
+                    self._climate.unique_id if self._climate else self._attr_unique_id,
+                )
+            },
+            name=self._device_name,
+            manufacturer="Hitachi",
+            model="AC (IR)",
+        )
+
+
+class HitachiSomatosensorySelect(SelectEntity):
+    """Select entity for Hitachi AC Somatosensory Mode (Humidity / Comfort)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "somatosensory_select"
+    _attr_icon = "mdi:water-percent"
+
+    def __init__(self, climate_entity, unique_id: str, device_name: str) -> None:
+        """Initialize somatosensory mode select entity."""
+        self._climate = climate_entity
+        self._attr_unique_id = unique_id
+        self._device_name = device_name
+        self._attr_options = ["comfort", "moisturizing"]
+
+    @property
+    def current_option(self) -> str | None:
+        """Return currently selected somatosensory setting."""
+        if self._climate and hasattr(self._climate, "somatosensory"):
+            return self._climate.somatosensory
+        return "comfort"
+
+    async def async_select_option(self, option: str) -> None:
+        """Change selected somatosensory setting."""
+        if self._climate:
+            await self._climate.async_set_somatosensory(option)
             self.async_write_ha_state()
 
     @property

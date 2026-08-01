@@ -97,3 +97,20 @@ set_mold_prevention:
             - "30"
             - "45"
             - "60"
+
+set_somatosensory:
+  name: Set Somatosensory Mode
+  description: Set somatosensory humidity control mode (comfort, moisturizing).
+  target:
+    entity:
+      domain: climate
+  fields:
+    mode:
+      name: Mode
+      description: Somatosensory mode setting.
+      required: true
+      selector:
+        select:
+          options:
+            - comfort
+            - moisturizing

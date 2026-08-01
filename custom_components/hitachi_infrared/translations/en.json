@@ -119,7 +119,18 @@
           "description": "Mold prevention duration (10, 20, 30, 45, 60 minutes)."
         }
       }
+    },
+    "set_somatosensory": {
+      "name": "Set Somatosensory Mode",
+      "description": "Set somatosensory humidity control mode (comfort, moisturizing).",
+      "fields": {
+        "mode": {
+          "name": "Mode",
+          "description": "Select somatosensory mode (comfort, moisturizing)."
+        }
+      }
     }
+
   },
   "entity": {
     "climate": {
@@ -130,9 +141,7 @@
             "state": {
               "none": "None",
               "eco": "Eco",
-              "sleep": "Sleep",
-              "comfort": "Comfort",
-              "moisturizing": "Moisturizing"
+              "sleep": "Sleep"
             }
           },
           "swing_horizontal_mode": {
@@ -168,7 +177,15 @@
           "45": "45 Mins",
           "60": "60 Mins"
         }
+      },
+      "somatosensory_select": {
+        "name": "Somatosensory Control",
+        "state": {
+          "comfort": "Comfort",
+          "moisturizing": "Moisturizing"
+        }
       }
+
     },
     "switch": {
       "mold_prevention_switch": {

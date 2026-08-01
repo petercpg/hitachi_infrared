@@ -13,9 +13,7 @@ from homeassistant.components.climate.const import (
     FAN_HIGH,
     FAN_LOW,
     FAN_MEDIUM,
-    PRESET_COMFORT,
     PRESET_ECO,
-    PRESET_MOISTURIZING,
     PRESET_NONE,
     PRESET_SLEEP,
     SWING_OFF,
@@ -98,6 +96,13 @@ def _async_register_services() -> None:
         "run_clean",
         {},
         "async_run_clean",
+    )
+    platform.async_register_entity_service(
+        "set_somatosensory",
+        {
+            vol.Required("mode"): cv.string,
+        },
+        "async_set_somatosensory",
     )
     platform.async_register_entity_service(
         "set_mold_prevention",
@@ -256,15 +261,13 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         else:
             self._attr_swing_horizontal_modes = ["off", "auto"]
 
-        # Supported presets (ECO, Comfort, Moisturizing, Sleep)
+        # Supported presets (ECO, Sleep)
         self._enable_somatosensory = self._config.get(CONF_ENABLE_SOMATOSENSORY, False)
         self._enable_timer = self._config.get(CONF_ENABLE_TIMER, True)
 
         preset_modes = [PRESET_NONE, PRESET_ECO]
         if self._enable_timer:
             preset_modes.append(PRESET_SLEEP)
-        if self._enable_somatosensory:
-            preset_modes.extend([PRESET_COMFORT, PRESET_MOISTURIZING])
         self._attr_preset_modes = preset_modes
 
         # Initial state defaults
@@ -285,6 +288,7 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         self._display = hitachi.HitachiAcDisplay.BRIGHT
         self._eco = False
         self._somatosensory = hitachi.HitachiAcSomatosensory.COMFORT
+        self._somatosensory_active = False
 
         # Feature flags
         self._enable_display_control = self._config.get(
@@ -419,6 +423,24 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         }
         return duration_map.get(self._mold_duration, 30)
 
+    @property
+    def somatosensory(self) -> str:
+        """Return current somatosensory setting ('comfort', 'moisturizing')."""
+        if self._somatosensory == hitachi.HitachiAcSomatosensory.MOISTURIZING:
+            return "moisturizing"
+        return "comfort"
+
+    async def async_set_somatosensory(self, mode: str) -> None:
+        """Set somatosensory setting ('comfort', 'moisturizing')."""
+        if mode == "moisturizing":
+            self._somatosensory = hitachi.HitachiAcSomatosensory.MOISTURIZING
+        else:  # "comfort"
+            self._somatosensory = hitachi.HitachiAcSomatosensory.COMFORT
+
+        self._last_button = hitachi.HitachiAcButton.SOMATOSENSORY
+        await self.async_send_ir_command()
+        self.async_write_ha_state()
+
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set preset mode."""
         self._attr_preset_mode = preset_mode
@@ -428,14 +450,6 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         elif preset_mode == PRESET_SLEEP:
             self._eco = False
             self._last_button = hitachi.HitachiAcButton.SLEEP
-        elif preset_mode == PRESET_COMFORT:
-            self._eco = False
-            self._somatosensory = hitachi.HitachiAcSomatosensory.COMFORT
-            self._last_button = hitachi.HitachiAcButton.SOMATOSENSORY
-        elif preset_mode == PRESET_MOISTURIZING:
-            self._eco = False
-            self._somatosensory = hitachi.HitachiAcSomatosensory.MOISTURIZING
-            self._last_button = hitachi.HitachiAcButton.SOMATOSENSORY
         else:
             self._eco = False
             self._attr_preset_mode = PRESET_NONE

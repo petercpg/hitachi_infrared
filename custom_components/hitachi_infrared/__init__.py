@@ -2,9 +2,7 @@
 
 import contextlib
 import importlib.metadata
-import json
 import logging
-import pathlib
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
@@ -25,18 +23,8 @@ PLATFORMS = [
 ]
 
 
-def _get_manifest_version() -> str:
-    """Read integration version dynamically from manifest.json."""
-    try:
-        manifest_path = pathlib.Path(__file__).parent / "manifest.json"
-        data = json.loads(manifest_path.read_text())
-        return data.get("version", "unknown")
-    except Exception:
-        return "unknown"
-
-
 def _log_version_info(integration_version: str) -> None:
-    """Log integration version and base infrared-protocols package version at DEBUG level."""
+    """Log integration version and base infrared-protocols package version in executor thread."""
     base_version = "unknown"
     with contextlib.suppress(importlib.metadata.PackageNotFoundError):
         base_version = importlib.metadata.version("infrared-protocols")
@@ -50,13 +38,12 @@ def _log_version_info(integration_version: str) -> None:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Hitachi Infrared from a config entry."""
-    try:
+    version = "unknown"
+    with contextlib.suppress(Exception):
         integration = await async_get_integration(hass, DOMAIN)
-        version = integration.version or _get_manifest_version()
-    except Exception:
-        version = _get_manifest_version()
+        version = integration.version or "unknown"
 
-    _log_version_info(version)
+    await hass.async_add_executor_job(_log_version_info, version)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
