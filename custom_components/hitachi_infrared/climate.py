@@ -790,7 +790,7 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
 
             timings = [abs(t) for t in raw_timings]
             if len(timings) % 2 != 0:
-                timings.append(0)
+                timings.append(50000)  # Add 50ms lead-out space for odd timing count
 
             num_pairs = len(timings) // 2
             pronto_parts = ["0000", freq_hex, f"{num_pairs:04x}", "0000"]
@@ -807,11 +807,26 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
             # Raw microsecond timing array (for ESPHome/GPIO)
             command_payload = [abs(t) for t in raw_timings]
 
+        # HA remote.send_command expects a list of command strings for broadlink/pronto, or raw timing list
+        if isinstance(command_payload, str):
+            payload_list = [command_payload]
+        elif isinstance(command_payload, list):
+            payload_list = command_payload
+        else:
+            payload_list = [command_payload]
+
+
+        _LOGGER.debug(
+            "Calling remote.send_command on %s with encoding %s",
+            self._remote_entity,
+            self._encoding,
+        )
+
         # Transmit command to traditional remote entity
         await self.hass.services.async_call(
             "remote",
             "send_command",
-            {"entity_id": self._remote_entity, "command": command_payload},
+            {"entity_id": self._remote_entity, "command": payload_list},
             blocking=False,
             context=self._context,
         )
