@@ -815,7 +815,6 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         else:
             payload_list = [command_payload]
 
-
         _LOGGER.debug(
             "Calling remote.send_command on %s with encoding %s",
             self._remote_entity,
