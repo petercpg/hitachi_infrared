@@ -3,14 +3,21 @@
     "step": {
       "user": {
         "title": "Hitachi Infrared Remote Integration",
-        "description": "Configure Hitachi Infrared Remote entity.",
+        "description": "Configure Hitachi Infrared Remote entity and optional features.",
         "data": {
           "name": "Name (Optional)",
           "emitter_entity_id": "Infrared / Remote Entity",
           "encoding": "IR Signal Encoding",
           "temperature_sensor": "Temperature Sensor Entity (Optional)",
           "humidity_sensor": "Humidity Sensor Entity (Optional)",
-          "cool_only": "Cool Only"
+          "cool_only": "Cool Only",
+          "h_swing_mode": "Horizontal Swing Mode",
+          "enable_display_control": "Enable Display Brightness Control (4 levels)",
+          "enable_somatosensory": "Enable Somatosensory (Comfort / Moisturizing) Mode",
+          "enable_mold_prevention": "Enable Mold Prevention / Ionization",
+          "enable_frost_wash": "Enable Frost Wash Feature",
+          "enable_pm25": "Enable PM2.5 Display Toggle",
+          "enable_timer": "Enable Scheduled Timers and Sleep Mode"
         }
       }
     },
@@ -29,7 +36,87 @@
           "encoding": "IR Signal Encoding",
           "temperature_sensor": "Temperature Sensor Entity (Optional)",
           "humidity_sensor": "Humidity Sensor Entity (Optional)",
-          "cool_only": "Cool Only"
+          "cool_only": "Cool Only",
+          "h_swing_mode": "Horizontal Swing Mode",
+          "enable_display_control": "Enable Display Brightness Control (4 levels)",
+          "enable_somatosensory": "Enable Somatosensory (Comfort / Moisturizing) Mode",
+          "enable_mold_prevention": "Enable Mold Prevention / Ionization",
+          "enable_frost_wash": "Enable Frost Wash Feature",
+          "enable_pm25": "Enable PM2.5 Display Toggle",
+          "enable_timer": "Enable Scheduled Timers and Sleep Mode"
+        }
+      }
+    }
+  },
+  "selector": {
+    "encoding": {
+      "options": {
+        "broadlink": "Broadlink Base64 (b64:)",
+        "pronto": "Pronto Hex (Xiaomi / MiIO)",
+        "raw": "Raw Microseconds (ESPHome / GPIO)"
+      }
+    },
+    "h_swing_mode": {
+      "options": {
+        "simple": "Simple (Off / Swing)",
+        "multi_step": "Multi-Step (Off / Auto / 5 Positions)"
+      }
+    }
+  },
+  "services": {
+    "set_display": {
+      "name": "Set Display Brightness",
+      "description": "Control the indoor unit LCD screen display / backlight mode.",
+      "fields": {
+        "display": {
+          "name": "Display Mode",
+          "description": "Select display brightness mode (bright, medium, dim, off)."
+        }
+      }
+    },
+    "set_pm25": {
+      "name": "Display PM2.5 Value",
+      "description": "Toggle PM2.5 reading display on the indoor unit panel."
+    },
+    "set_timer": {
+      "name": "Set Timer",
+      "description": "Schedule ON timer when OFF, or OFF timer when ON.",
+      "fields": {
+        "minutes": {
+          "name": "Minutes",
+          "description": "Timer duration in minutes (1..1440)."
+        }
+      }
+    },
+    "cancel_timer": {
+      "name": "Cancel Timer",
+      "description": "Cancel active scheduled timer."
+    },
+    "set_sleep_timer": {
+      "name": "Set Sleep Timer",
+      "description": "Activate sleep mode and optionally set sleep timer duration.",
+      "fields": {
+        "minutes": {
+          "name": "Minutes",
+          "description": "Sleep timer duration in minutes (60..1440)."
+        }
+      }
+    },
+    "run_clean": {
+      "name": "Run Freeze Clean",
+      "description": "Trigger freeze clean cycle (allowed only when AC is OFF)."
+    },
+    "set_mold_prevention": {
+      "name": "Set Mold Prevention",
+      "description": "Enable or disable mold prevention feature and duration.",
+      "fields": {
+        "active": {
+          "name": "Active",
+          "description": "Enable or disable mold prevention."
+        },
+        "duration": {
+          "name": "Duration (Minutes)",
+          "description": "Mold prevention duration (10, 20, 30, 45, 60 minutes)."
         }
       }
     }
@@ -37,7 +124,63 @@
   "entity": {
     "climate": {
       "hitachi_infrared": {
-        "name": "Hitachi AC"
+        "name": "Hitachi AC",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "none": "None",
+              "eco": "Eco",
+              "sleep": "Sleep",
+              "comfort": "Comfort",
+              "moisturizing": "Moisturizing"
+            }
+          },
+          "swing_horizontal_mode": {
+            "state": {
+              "off": "Off",
+              "auto": "Auto",
+              "right_max": "Right Max",
+              "right": "Right",
+              "middle": "Middle",
+              "left": "Left",
+              "left_max": "Left Max"
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "display_select": {
+        "name": "Display Brightness",
+        "state": {
+          "bright": "Bright",
+          "medium": "Medium",
+          "dim": "Dim",
+          "off": "Off"
+        }
+      },
+      "mold_duration_select": {
+        "name": "Mold Prevention Duration",
+        "state": {
+          "10": "10 Mins",
+          "20": "20 Mins",
+          "30": "30 Mins",
+          "45": "45 Mins",
+          "60": "60 Mins"
+        }
+      }
+    },
+    "switch": {
+      "mold_prevention_switch": {
+        "name": "Mold Prevention / Ionization"
+      }
+    },
+    "button": {
+      "frost_wash_button": {
+        "name": "Frost Wash"
+      },
+      "pm25_button": {
+        "name": "PM2.5 Display Toggle"
       }
     }
   }

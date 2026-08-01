@@ -31,11 +31,18 @@ ignore = [
     "PLR0912", # Ignore too many branches warning in climate command translation
     "BLE", # Ignore blind exception catch warnings in fallback debug handlers
     "CPY", # Ignore missing copyright notice at top of file
+    "EM102", # Ignore exception msg f-string requirement
+    "TRY003", # Ignore long exception message warning
+    "PLR0911", # Ignore too many return statements warning
+    "SIM102", # Ignore nested if warning
 ]
 
 
 [lint.flake8-pytest-style]
 fixture-parentheses = false
+
+[lint.per-file-ignores]
+"tests/*" = ["S101", "INP001", "TC003"]
 
 [lint.pyupgrade]
 keep-runtime-typing = true

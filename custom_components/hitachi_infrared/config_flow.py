@@ -8,7 +8,6 @@ from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
-    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
 )
@@ -16,12 +15,21 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_COOL_ONLY,
     CONF_EMITTER_ENTITY_ID,
+    CONF_ENABLE_DISPLAY_CONTROL,
+    CONF_ENABLE_FROST_WASH,
+    CONF_ENABLE_MOLD_PREVENTION,
+    CONF_ENABLE_PM25,
+    CONF_ENABLE_SOMATOSENSORY,
+    CONF_ENABLE_TIMER,
     CONF_ENCODING,
+    CONF_H_SWING_MODE,
     CONF_HUMIDITY_SENSOR,
     CONF_PROTOCOL,
     CONF_TEMPERATURE_SENSOR,
     DEFAULT_NAME,
     DOMAIN,
+    SWING_MODE_MULTI_STEP,
+    SWING_MODE_SIMPLE,
 )
 
 
@@ -66,17 +74,8 @@ class HitachiIRConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Required(CONF_ENCODING, default="broadlink"): SelectSelector(
                     SelectSelectorConfig(
-                        options=[
-                            SelectOptionDict(
-                                value="broadlink", label="Broadlink Base64"
-                            ),
-                            SelectOptionDict(
-                                value="pronto", label="Pronto Hex (Xiaomi / MiIO)"
-                            ),
-                            SelectOptionDict(
-                                value="raw", label="Raw Microseconds (ESPHome)"
-                            ),
-                        ]
+                        options=["broadlink", "pronto", "raw"],
+                        translation_key="encoding",
                     )
                 ),
                 vol.Optional(CONF_TEMPERATURE_SENSOR): EntitySelector(
@@ -86,6 +85,20 @@ class HitachiIRConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     EntitySelectorConfig(domain="sensor")
                 ),
                 vol.Required(CONF_COOL_ONLY, default=False): bool,
+                vol.Required(
+                    CONF_H_SWING_MODE, default=SWING_MODE_SIMPLE
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[SWING_MODE_SIMPLE, SWING_MODE_MULTI_STEP],
+                        translation_key="h_swing_mode",
+                    )
+                ),
+                vol.Required(CONF_ENABLE_DISPLAY_CONTROL, default=False): bool,
+                vol.Required(CONF_ENABLE_SOMATOSENSORY, default=False): bool,
+                vol.Required(CONF_ENABLE_MOLD_PREVENTION, default=False): bool,
+                vol.Required(CONF_ENABLE_FROST_WASH, default=False): bool,
+                vol.Required(CONF_ENABLE_PM25, default=False): bool,
+                vol.Required(CONF_ENABLE_TIMER, default=True): bool,
             }
         )
 
@@ -129,17 +142,8 @@ class HitachiIROptionsFlowHandler(config_entries.OptionsFlow):
                     default=current.get(CONF_ENCODING, "broadlink"),
                 ): SelectSelector(
                     SelectSelectorConfig(
-                        options=[
-                            SelectOptionDict(
-                                value="broadlink", label="Broadlink Base64"
-                            ),
-                            SelectOptionDict(
-                                value="pronto", label="Pronto Hex (Xiaomi / MiIO)"
-                            ),
-                            SelectOptionDict(
-                                value="raw", label="Raw Microseconds (ESPHome)"
-                            ),
-                        ]
+                        options=["broadlink", "pronto", "raw"],
+                        translation_key="encoding",
                     )
                 ),
                 vol.Optional(
@@ -155,6 +159,39 @@ class HitachiIROptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(
                     CONF_COOL_ONLY,
                     default=current.get(CONF_COOL_ONLY, False),
+                ): bool,
+                vol.Required(
+                    CONF_H_SWING_MODE,
+                    default=current.get(CONF_H_SWING_MODE, SWING_MODE_SIMPLE),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[SWING_MODE_SIMPLE, SWING_MODE_MULTI_STEP],
+                        translation_key="h_swing_mode",
+                    )
+                ),
+                vol.Required(
+                    CONF_ENABLE_DISPLAY_CONTROL,
+                    default=current.get(CONF_ENABLE_DISPLAY_CONTROL, False),
+                ): bool,
+                vol.Required(
+                    CONF_ENABLE_SOMATOSENSORY,
+                    default=current.get(CONF_ENABLE_SOMATOSENSORY, False),
+                ): bool,
+                vol.Required(
+                    CONF_ENABLE_MOLD_PREVENTION,
+                    default=current.get(CONF_ENABLE_MOLD_PREVENTION, False),
+                ): bool,
+                vol.Required(
+                    CONF_ENABLE_FROST_WASH,
+                    default=current.get(CONF_ENABLE_FROST_WASH, False),
+                ): bool,
+                vol.Required(
+                    CONF_ENABLE_PM25,
+                    default=current.get(CONF_ENABLE_PM25, False),
+                ): bool,
+                vol.Required(
+                    CONF_ENABLE_TIMER,
+                    default=current.get(CONF_ENABLE_TIMER, True),
                 ): bool,
             }
         )

@@ -3,14 +3,21 @@
     "step": {
       "user": {
         "title": "日立冷氣紅外線遙控整合",
-        "description": "設定您的日立冷氣紅外線遙控器實體。",
+        "description": "設定您的日立冷氣紅外線遙控器實體與選用功能。",
         "data": {
           "name": "名稱（選填）",
           "emitter_entity_id": "紅外線發射器實體",
           "encoding": "紅外線訊號編碼格式",
           "temperature_sensor": "溫度感測器實體（選填）",
           "humidity_sensor": "濕度感測器實體（選填）",
-          "cool_only": "僅冷氣模式（冷專）"
+          "cool_only": "僅冷氣模式（冷專）",
+          "h_swing_mode": "水平擺葉模式",
+          "enable_display_control": "啟用面板螢幕亮度控制 (4 段選擇)",
+          "enable_somatosensory": "啟用體感「舒適/保濕」模式",
+          "enable_mold_prevention": "啟用機體防霉 / 電離抑菌",
+          "enable_frost_wash": "啟用凍結洗淨功能",
+          "enable_pm25": "啟用 PM2.5 面板顯示切換",
+          "enable_timer": "啟用預約定時與舒眠功能"
         }
       }
     },
@@ -29,7 +36,87 @@
           "encoding": "紅外線訊號編碼格式",
           "temperature_sensor": "溫度感測器實體（選填）",
           "humidity_sensor": "濕度感測器實體（選填）",
-          "cool_only": "僅冷氣模式（冷專）"
+          "cool_only": "僅冷氣模式（冷專）",
+          "h_swing_mode": "水平擺葉模式",
+          "enable_display_control": "啟用面板螢幕亮度控制 (4 段選擇)",
+          "enable_somatosensory": "啟用體感「舒適/保濕」模式",
+          "enable_mold_prevention": "啟用機體防霉 / 電離抑菌",
+          "enable_frost_wash": "啟用凍結洗淨功能",
+          "enable_pm25": "啟用 PM2.5 面板顯示切換",
+          "enable_timer": "啟用預約定時與舒眠功能"
+        }
+      }
+    }
+  },
+  "selector": {
+    "encoding": {
+      "options": {
+        "broadlink": "Broadlink Base64 碼 (b64:)",
+        "pronto": "Pronto Hex 碼 (小米 / MiIO)",
+        "raw": "Raw 微秒數 (ESPHome / GPIO)"
+      }
+    },
+    "h_swing_mode": {
+      "options": {
+        "simple": "標準兩段式 (不擺動 / 自動搖擺)",
+        "multi_step": "多段多位置 (不擺動 / 自動 / 5 段固定位置)"
+      }
+    }
+  },
+  "services": {
+    "set_display": {
+      "name": "設定面板亮度",
+      "description": "控制室內機面板螢幕亮度模式。",
+      "fields": {
+        "display": {
+          "name": "面板亮度模式",
+          "description": "選擇螢幕亮度模式 (全亮、中亮、微亮、關閉)。"
+        }
+      }
+    },
+    "set_pm25": {
+      "name": "顯示 PM2.5 數值",
+      "description": "切換室內機面板顯示 PM2.5 濃度讀數。"
+    },
+    "set_timer": {
+      "name": "預約定時開關機",
+      "description": "冷氣運轉中設定關機定時，關機中設定開機定時。",
+      "fields": {
+        "minutes": {
+          "name": "預約分鐘數",
+          "description": "預約定時時間（1 ~ 1440 分鐘）。"
+        }
+      }
+    },
+    "cancel_timer": {
+      "name": "取消預約定時",
+      "description": "取消目前設定的預約定時排程。"
+    },
+    "set_sleep_timer": {
+      "name": "舒眠定時",
+      "description": "啟動舒眠模式並可自訂舒眠定時時間。",
+      "fields": {
+        "minutes": {
+          "name": "舒眠分鐘數",
+          "description": "舒眠定時時間（60 ~ 1440 分鐘）。"
+        }
+      }
+    },
+    "run_clean": {
+      "name": "凍結洗淨",
+      "description": "觸發機體凍結洗淨運轉（僅限關機狀態下執行）。"
+    },
+    "set_mold_prevention": {
+      "name": "機體防霉 / 電離抑菌",
+      "description": "開啟或關閉機體防霉功能與運轉時間。",
+      "fields": {
+        "active": {
+          "name": "啟用狀態",
+          "description": "開啟或關閉機體防霉運轉。"
+        },
+        "duration": {
+          "name": "運轉時間",
+          "description": "防霉運轉時間（10, 20, 30, 45, 60 分鐘）。"
         }
       }
     }
@@ -37,7 +124,63 @@
   "entity": {
     "climate": {
       "hitachi_infrared": {
-        "name": "日立冷氣"
+        "name": "日立冷氣",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "none": "無",
+              "eco": "省電",
+              "sleep": "舒眠",
+              "comfort": "舒適",
+              "moisturizing": "保濕"
+            }
+          },
+          "swing_horizontal_mode": {
+            "state": {
+              "off": "不擺動",
+              "auto": "自動搖擺",
+              "right_max": "右極限",
+              "right": "右側",
+              "middle": "正中",
+              "left": "左側",
+              "left_max": "左極限"
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "display_select": {
+        "name": "面板亮度",
+        "state": {
+          "bright": "全亮",
+          "medium": "中亮",
+          "dim": "微亮",
+          "off": "關閉螢幕"
+        }
+      },
+      "mold_duration_select": {
+        "name": "防霉運轉時間",
+        "state": {
+          "10": "10 分鐘",
+          "20": "20 分鐘",
+          "30": "30 分鐘",
+          "45": "45 分鐘",
+          "60": "60 分鐘"
+        }
+      }
+    },
+    "switch": {
+      "mold_prevention_switch": {
+        "name": "機體防霉 / 電離抑菌"
+      }
+    },
+    "button": {
+      "frost_wash_button": {
+        "name": "凍結洗淨"
+      },
+      "pm25_button": {
+        "name": "PM2.5 面板顯示"
       }
     }
   }

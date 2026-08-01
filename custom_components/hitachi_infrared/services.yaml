@@ -12,22 +12,17 @@ set_display:
       selector:
         select:
           options:
-            - label: Bright (全亮)
-              value: bright
-            - label: Medium (中亮)
-              value: medium
-            - label: Dim (微亮)
-              value: dim
-            - label: Off (關閉螢幕)
-              value: "off"
+            - bright
+            - medium
+            - dim
+            - "off"
 
 set_pm25:
-  name: Display PM2.5 Value (顯示 PM2.5 數值)
+  name: Display PM2.5 Value
   description: Toggle PM2.5 reading display on the indoor unit panel.
   target:
     entity:
       domain: climate
-
 
 set_timer:
   name: Set Timer
@@ -53,15 +48,32 @@ cancel_timer:
     entity:
       domain: climate
 
+set_sleep_timer:
+  name: Set Sleep Timer
+  description: Activate sleep mode and optionally set sleep timer duration.
+  target:
+    entity:
+      domain: climate
+  fields:
+    minutes:
+      name: Minutes
+      description: Sleep timer duration in minutes.
+      required: false
+      selector:
+        number:
+          min: 60
+          max: 1440
+          unit_of_measurement: min
+
 run_clean:
-  name: Run Freeze Clean (凍結洗淨)
+  name: Run Freeze Clean
   description: Trigger freeze clean cycle (allowed only when AC is OFF).
   target:
     entity:
       domain: climate
 
 set_mold_prevention:
-  name: Set Mold Prevention (機體防霉)
+  name: Set Mold Prevention
   description: Enable or disable mold prevention feature.
   target:
     entity:

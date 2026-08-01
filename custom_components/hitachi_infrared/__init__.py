@@ -4,9 +4,11 @@ import contextlib
 import importlib.metadata
 import json
 import logging
+import pathlib
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
+from homeassistant.loader import async_get_integration
 
 from .const import DOMAIN as DOMAIN
 
@@ -15,51 +17,46 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = [Platform.CLIMATE]
+PLATFORMS = [
+    Platform.CLIMATE,
+    Platform.SELECT,
+    Platform.SWITCH,
+    Platform.BUTTON,
+]
 
 
-def _log_infrared_protocols_info() -> None:
-    """Log infrared-protocols package source and version info at DEBUG level."""
+def _get_manifest_version() -> str:
+    """Read integration version dynamically from manifest.json."""
     try:
-        import infrared_protocols
+        manifest_path = pathlib.Path(__file__).parent / "manifest.json"
+        data = json.loads(manifest_path.read_text())
+        return data.get("version", "unknown")
+    except Exception:
+        return "unknown"
 
-        file_path = getattr(infrared_protocols, "__file__", "unknown")
-    except ImportError as err:
-        _LOGGER.debug("infrared-protocols import failed: %s", err)
-        return
 
-    version_str = "unknown"
-    git_url = None
-    commit_id = None
-    requested_revision = None
-
+def _log_version_info(integration_version: str) -> None:
+    """Log integration version and base infrared-protocols package version at DEBUG level."""
+    base_version = "unknown"
     with contextlib.suppress(importlib.metadata.PackageNotFoundError):
-        version_str = importlib.metadata.version("infrared-protocols")
+        base_version = importlib.metadata.version("infrared-protocols")
 
-    with contextlib.suppress(Exception):
-        dist = importlib.metadata.distribution("infrared-protocols")
-        direct_url_json = dist.read_text("direct_url.json")
-        if direct_url_json:
-            data = json.loads(direct_url_json)
-            git_url = data.get("url")
-            vcs_info = data.get("vcs_info", {})
-            commit_id = vcs_info.get("commit_id")
-            requested_revision = vcs_info.get("requested_revision")
-
-    info_parts = [f"version={version_str}", f"path={file_path}"]
-    if git_url:
-        info_parts.append(f"git_url={git_url}")
-    if requested_revision:
-        info_parts.append(f"ref={requested_revision}")
-    if commit_id:
-        info_parts.append(f"commit={commit_id}")
-
-    _LOGGER.debug("Loaded infrared-protocols: %s", ", ".join(info_parts))
+    _LOGGER.debug(
+        "Loaded Hitachi Infrared integration v%s (base infrared-protocols v%s)",
+        integration_version,
+        base_version,
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Hitachi Infrared from a config entry."""
-    _log_infrared_protocols_info()
+    try:
+        integration = await async_get_integration(hass, DOMAIN)
+        version = integration.version or _get_manifest_version()
+    except Exception:
+        version = _get_manifest_version()
+
+    _log_version_info(version)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True

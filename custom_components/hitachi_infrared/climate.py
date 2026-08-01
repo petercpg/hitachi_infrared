@@ -13,6 +13,11 @@ from homeassistant.components.climate.const import (
     FAN_HIGH,
     FAN_LOW,
     FAN_MEDIUM,
+    PRESET_COMFORT,
+    PRESET_ECO,
+    PRESET_MOISTURIZING,
+    PRESET_NONE,
+    PRESET_SLEEP,
     SWING_OFF,
     SWING_VERTICAL,
     ClimateEntityFeature,
@@ -24,15 +29,25 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
-from infrared_protocols.commands import hitachi
 
+from . import protocol as hitachi
 from .const import (
     CONF_COOL_ONLY,
     CONF_EMITTER_ENTITY_ID,
+    CONF_ENABLE_DISPLAY_CONTROL,
+    CONF_ENABLE_FROST_WASH,
+    CONF_ENABLE_MOLD_PREVENTION,
+    CONF_ENABLE_PM25,
+    CONF_ENABLE_SOMATOSENSORY,
+    CONF_ENABLE_TIMER,
     CONF_ENCODING,
+    CONF_H_SWING_MODE,
     CONF_HUMIDITY_SENSOR,
     CONF_PROTOCOL,
     CONF_TEMPERATURE_SENSOR,
+    DOMAIN,
+    SWING_MODE_MULTI_STEP,
+    SWING_MODE_SIMPLE,
 )
 
 if TYPE_CHECKING:
@@ -73,6 +88,13 @@ def _async_register_services() -> None:
         "async_cancel_timer",
     )
     platform.async_register_entity_service(
+        "set_sleep_timer",
+        {
+            vol.Optional("minutes"): cv.positive_int,
+        },
+        "async_set_sleep_timer",
+    )
+    platform.async_register_entity_service(
         "run_clean",
         {},
         "async_run_clean",
@@ -91,33 +113,25 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
     """Set up the Hitachi Infrared Remote climate platform from YAML."""
     name = config.get("name")
     remote_entity = config.get("remote_entity")
-    temp_sensor = config.get(
-        "temperature_sensor"
-    )  # External temperature sensor entity ID
-    humidity_sensor = config.get(
-        "humidity_sensor"
-    )  # External humidity sensor entity ID
-    encoding = config.get("encoding", "broadlink")  # broadlink, pronto, raw
+    temp_sensor = config.get("temperature_sensor")
+    humidity_sensor = config.get("humidity_sensor")
+    encoding = config.get("encoding", "broadlink")
     unique_id = config.get("unique_id")
     protocol = config.get("protocol", "ac344")
-    cool_only = config.get(
-        "cool_only", False
-    )  # Cool-only AC flag (default False for Heat/Cool)
-    add_entities(
-        [
-            HitachiIRClimate(
-                hass,
-                name,
-                remote_entity,
-                temp_sensor,
-                humidity_sensor,
-                encoding,
-                unique_id,
-                protocol,
-                cool_only,
-            )
-        ]
+    cool_only = config.get("cool_only", False)
+    climate_entity = HitachiIRClimate(
+        hass=hass,
+        name=name,
+        remote_entity=remote_entity,
+        temp_sensor=temp_sensor,
+        humidity_sensor=humidity_sensor,
+        encoding=encoding,
+        unique_id=unique_id,
+        protocol=protocol,
+        cool_only=cool_only,
+        config=config,
     )
+    add_entities([climate_entity])
     _async_register_services()
 
 
@@ -139,21 +153,24 @@ async def async_setup_entry(
     encoding = config.get(CONF_ENCODING, config.get("encoding", "broadlink"))
     unique_id = config_entry.unique_id or config_entry.entry_id
 
-    async_add_entities(
-        [
-            HitachiIRClimate(
-                hass=hass,
-                name=name,
-                remote_entity=remote_entity,
-                temp_sensor=temp_sensor,
-                humidity_sensor=humidity_sensor,
-                encoding=encoding,
-                unique_id=unique_id,
-                protocol=protocol,
-                cool_only=cool_only,
-            )
-        ]
+    climate_entity = HitachiIRClimate(
+        hass=hass,
+        name=name,
+        remote_entity=remote_entity,
+        temp_sensor=temp_sensor,
+        humidity_sensor=humidity_sensor,
+        encoding=encoding,
+        unique_id=unique_id,
+        protocol=protocol,
+        cool_only=cool_only,
+        config=config,
     )
+
+    hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = {
+        "climate": climate_entity
+    }
+
+    async_add_entities([climate_entity])
     _async_register_services()
 
 
@@ -173,6 +190,7 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         unique_id=None,
         protocol="ac344",
         cool_only=False,
+        config=None,
     ) -> None:
         """Initialize the Hitachi IR Climate entity."""
         self.hass = hass
@@ -183,6 +201,7 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         self._encoding = encoding
         self._protocol = protocol
         self._cool_only = cool_only
+        self._config = config or {}
 
         if unique_id:
             self._attr_unique_id = unique_id
@@ -222,22 +241,41 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         # Supported vertical swing modes
         self._attr_swing_modes = [SWING_OFF, SWING_VERTICAL]
 
-        # Supported horizontal swing modes (deduplicated 7 steps into 6 states)
-        self._attr_swing_horizontal_modes = [
-            "auto",
-            "right_max",
-            "right",
-            "middle",
-            "left",
-            "left_max",
-        ]
+        # Supported horizontal swing modes based on config option
+        self._h_swing_mode = self._config.get(CONF_H_SWING_MODE, SWING_MODE_SIMPLE)
+        if self._h_swing_mode == SWING_MODE_MULTI_STEP:
+            self._attr_swing_horizontal_modes = [
+                "off",
+                "auto",
+                "right_max",
+                "right",
+                "middle",
+                "left",
+                "left_max",
+            ]
+        else:
+            self._attr_swing_horizontal_modes = ["off", "auto"]
+
+        # Supported presets (ECO, Comfort, Moisturizing, Sleep)
+        self._enable_somatosensory = self._config.get(CONF_ENABLE_SOMATOSENSORY, False)
+        self._enable_timer = self._config.get(CONF_ENABLE_TIMER, True)
+
+        preset_modes = [PRESET_NONE, PRESET_ECO]
+        if self._enable_timer:
+            preset_modes.append(PRESET_SLEEP)
+        if self._enable_somatosensory:
+            preset_modes.extend([PRESET_COMFORT, PRESET_MOISTURIZING])
+        self._attr_preset_modes = preset_modes
 
         # Initial state defaults
         self._attr_hvac_mode = HVACMode.COOL
         self._attr_target_temperature = 26
         self._attr_fan_mode = FAN_AUTO
         self._attr_swing_mode = SWING_OFF
-        self._attr_swing_horizontal_mode = "middle"
+        self._attr_swing_horizontal_mode = (
+            "auto" if self._h_swing_mode == SWING_MODE_SIMPLE else "middle"
+        )
+        self._attr_preset_mode = PRESET_NONE
 
         # Advanced feature states (timers, mold prevention, display)
         self._on_timer_mins = None
@@ -245,6 +283,18 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         self._mold_prevention = False
         self._mold_duration = hitachi.HitachiAcMoldDuration.MINS_30
         self._display = hitachi.HitachiAcDisplay.BRIGHT
+        self._eco = False
+        self._somatosensory = hitachi.HitachiAcSomatosensory.COMFORT
+
+        # Feature flags
+        self._enable_display_control = self._config.get(
+            CONF_ENABLE_DISPLAY_CONTROL, False
+        )
+        self._enable_mold_prevention = self._config.get(
+            CONF_ENABLE_MOLD_PREVENTION, False
+        )
+        self._enable_frost_wash = self._config.get(CONF_ENABLE_FROST_WASH, False)
+        self._enable_pm25 = self._config.get(CONF_ENABLE_PM25, False)
 
         # Initialize dynamic attributes and feature flags
         self._update_supported_limits()
@@ -253,13 +303,16 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         """Dynamically update supported features and fan modes based on current HVAC mode."""
         mode = self._attr_hvac_mode
 
+        base_features = (
+            ClimateEntityFeature.FAN_MODE
+            | ClimateEntityFeature.SWING_MODE
+            | ClimateEntityFeature.SWING_HORIZONTAL_MODE
+            | ClimateEntityFeature.PRESET_MODE
+        )
+
         if mode == HVACMode.FAN_ONLY:
             # Target temperature is not supported in FAN_ONLY mode
-            self._attr_supported_features = (
-                ClimateEntityFeature.FAN_MODE
-                | ClimateEntityFeature.SWING_MODE
-                | ClimateEntityFeature.SWING_HORIZONTAL_MODE
-            )
+            self._attr_supported_features = base_features
             # FAN_ONLY mode fan speeds (excludes AUTO)
             self._attr_fan_modes = [FAN_HIGH, FAN_MEDIUM, FAN_LOW, "silent"]
             self._attr_target_temperature = None
@@ -268,10 +321,7 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
 
         elif mode == HVACMode.AUTO:
             self._attr_supported_features = (
-                ClimateEntityFeature.TARGET_TEMPERATURE
-                | ClimateEntityFeature.FAN_MODE
-                | ClimateEntityFeature.SWING_MODE
-                | ClimateEntityFeature.SWING_HORIZONTAL_MODE
+                base_features | ClimateEntityFeature.TARGET_TEMPERATURE
             )
             # AUTO mode fan speeds
             self._attr_fan_modes = [FAN_AUTO, FAN_LOW, "silent"]
@@ -306,10 +356,7 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
             self._attr_min_temp = hitachi.MIN_TEMP
             self._attr_max_temp = hitachi.MAX_TEMP
             self._attr_supported_features = (
-                ClimateEntityFeature.TARGET_TEMPERATURE
-                | ClimateEntityFeature.FAN_MODE
-                | ClimateEntityFeature.SWING_MODE
-                | ClimateEntityFeature.SWING_HORIZONTAL_MODE
+                base_features | ClimateEntityFeature.TARGET_TEMPERATURE
             )
             # DRY mode fan speeds
             self._attr_fan_modes = [FAN_LOW, "silent"]
@@ -326,10 +373,7 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
             self._attr_min_temp = hitachi.MIN_TEMP
             self._attr_max_temp = hitachi.MAX_TEMP
             self._attr_supported_features = (
-                ClimateEntityFeature.TARGET_TEMPERATURE
-                | ClimateEntityFeature.FAN_MODE
-                | ClimateEntityFeature.SWING_MODE
-                | ClimateEntityFeature.SWING_HORIZONTAL_MODE
+                base_features | ClimateEntityFeature.TARGET_TEMPERATURE
             )
             self._attr_fan_modes = [
                 FAN_AUTO,
@@ -346,6 +390,56 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
                 self._attr_target_temperature = 26
             if self._attr_fan_mode not in self._attr_fan_modes:
                 self._attr_fan_mode = FAN_AUTO
+
+    @property
+    def display(self) -> str:
+        """Return display brightness string."""
+        display_map = {
+            hitachi.HitachiAcDisplay.BRIGHT: "bright",
+            hitachi.HitachiAcDisplay.MEDIUM: "medium",
+            hitachi.HitachiAcDisplay.DIM: "dim",
+            hitachi.HitachiAcDisplay.OFF: "off",
+        }
+        return display_map.get(self._display, "bright")
+
+    @property
+    def mold_prevention(self) -> bool:
+        """Return mold prevention active status."""
+        return self._mold_prevention
+
+    @property
+    def mold_duration_mins(self) -> int:
+        """Return mold prevention duration in minutes."""
+        duration_map = {
+            hitachi.HitachiAcMoldDuration.MINS_10: 10,
+            hitachi.HitachiAcMoldDuration.MINS_20: 20,
+            hitachi.HitachiAcMoldDuration.MINS_30: 30,
+            hitachi.HitachiAcMoldDuration.MINS_45: 45,
+            hitachi.HitachiAcMoldDuration.MINS_60: 60,
+        }
+        return duration_map.get(self._mold_duration, 30)
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Set preset mode."""
+        self._attr_preset_mode = preset_mode
+        if preset_mode == PRESET_ECO:
+            self._eco = True
+            self._last_button = hitachi.HitachiAcButton.ECO
+        elif preset_mode == PRESET_SLEEP:
+            self._eco = False
+            self._last_button = hitachi.HitachiAcButton.SLEEP
+        elif preset_mode == PRESET_COMFORT:
+            self._eco = False
+            self._somatosensory = hitachi.HitachiAcSomatosensory.COMFORT
+            self._last_button = hitachi.HitachiAcButton.SOMATOSENSORY
+        elif preset_mode == PRESET_MOISTURIZING:
+            self._eco = False
+            self._somatosensory = hitachi.HitachiAcSomatosensory.MOISTURIZING
+            self._last_button = hitachi.HitachiAcButton.SOMATOSENSORY
+        else:
+            self._eco = False
+            self._attr_preset_mode = PRESET_NONE
+        await self.async_send_ir_command()
 
     async def async_added_to_hass(self) -> None:
         """Set up external listeners and restore last state when entity is added."""
@@ -496,6 +590,14 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         self._last_button = hitachi.HitachiAcButton.CANCEL_TIMER
         await self.async_send_ir_command()
 
+    async def async_set_sleep_timer(self, minutes: int | None = None) -> None:
+        """Set sleep mode timer."""
+        self._attr_preset_mode = PRESET_SLEEP
+        self._last_button = hitachi.HitachiAcButton.SLEEP
+        if minutes is not None:
+            self._off_timer_mins = minutes
+        await self.async_send_ir_command()
+
     async def async_run_clean(self) -> None:
         """Run clean cycle (allowed only in OFF state)."""
         if self._attr_hvac_mode != HVACMode.OFF:
@@ -631,7 +733,9 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
             power=is_on,
             swing_v=is_swing_v,
             swing_h=current_swing_h,
+            eco=self._eco,
             display=self._display,
+            somatosensory=self._somatosensory,
             off_timer_mins=self._off_timer_mins,
             on_timer_mins=self._on_timer_mins,
             mold_prevention=self._mold_prevention,
