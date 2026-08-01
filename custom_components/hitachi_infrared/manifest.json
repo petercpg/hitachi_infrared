@@ -10,7 +10,7 @@
   "iot_class": "assumed_state",
   "issue_tracker": "https://github.com/petercpg/hitachi_infrared/issues",
   "requirements": [
-    "infrared-protocols@git+https://github.com/petercpg/infrared-protocols.git@add-hitachi-ac344"
+    "infrared-protocols>=8.2.0"
   ],
-  "version": "1.0.2"
+  "version": "1.1.0"
 }
