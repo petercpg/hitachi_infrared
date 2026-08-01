@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - release
+    tags:
+      - 'v*'
+
 
 permissions:
   contents: write
@@ -23,48 +26,57 @@ jobs:
       - name: Calculate version bump
         id: calculate_version
         run: |
-          MANIFEST_VER=$(jq -r '.version' custom_components/hitachi_infrared/manifest.json)
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          LATEST_VER="${LATEST_TAG#v}"
-
-          echo "Manifest version: $MANIFEST_VER"
-          echo "Latest Git Tag: $LATEST_TAG ($LATEST_VER)"
-
-          IFS='.' read -r MANIFEST_MAJOR MANIFEST_MINOR MANIFEST_PATCH <<< "$MANIFEST_VER"
-          IFS='.' read -r LATEST_MAJOR LATEST_MINOR LATEST_PATCH <<< "$LATEST_VER"
-
-          MANIFEST_MAJOR=${MANIFEST_MAJOR:-0}
-          MANIFEST_MINOR=${MANIFEST_MINOR:-0}
-          MANIFEST_PATCH=${MANIFEST_PATCH:-0}
-          LATEST_MAJOR=${LATEST_MAJOR:-0}
-          LATEST_MINOR=${LATEST_MINOR:-0}
-          LATEST_PATCH=${LATEST_PATCH:-0}
-
-          if [ "$MANIFEST_MAJOR" -gt "$LATEST_MAJOR" ] 2>/dev/null || \
-             { [ "$MANIFEST_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$MANIFEST_MINOR" -gt "$LATEST_MINOR" ]; } 2>/dev/null; then
-              NEW_VER="$MANIFEST_VER"
-              echo "Detected manual Major/Minor version bump in manifest.json: $NEW_VER"
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+            NEW_VER="${TAG_NAME#v}"
+            echo "Triggered by tag push: $TAG_NAME"
           else
-              if [ "$LATEST_TAG" = "v0.0.0" ]; then
-                  NEW_VER="$MANIFEST_VER"
-              else
-                  NEXT_PATCH=$((LATEST_PATCH + 1))
-                  NEW_VER="${LATEST_MAJOR}.${LATEST_MINOR}.${NEXT_PATCH}"
-              fi
-              echo "Auto incremented patch version to: $NEW_VER"
+            MANIFEST_VER=$(jq -r '.version' custom_components/hitachi_infrared/manifest.json)
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            LATEST_VER="${LATEST_TAG#v}"
+
+            echo "Manifest version: $MANIFEST_VER"
+            echo "Latest Git Tag: $LATEST_TAG ($LATEST_VER)"
+
+            IFS='.' read -r MANIFEST_MAJOR MANIFEST_MINOR MANIFEST_PATCH <<< "$MANIFEST_VER"
+            IFS='.' read -r LATEST_MAJOR LATEST_MINOR LATEST_PATCH <<< "$LATEST_VER"
+
+            MANIFEST_MAJOR=${MANIFEST_MAJOR:-0}
+            MANIFEST_MINOR=${MANIFEST_MINOR:-0}
+            MANIFEST_PATCH=${MANIFEST_PATCH:-0}
+            LATEST_MAJOR=${LATEST_MAJOR:-0}
+            LATEST_MINOR=${LATEST_MINOR:-0}
+            LATEST_PATCH=${LATEST_PATCH:-0}
+
+            if [ "$MANIFEST_MAJOR" -gt "$LATEST_MAJOR" ] 2>/dev/null || \
+               { [ "$MANIFEST_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$MANIFEST_MINOR" -gt "$LATEST_MINOR" ]; } 2>/dev/null; then
+                NEW_VER="$MANIFEST_VER"
+                echo "Detected manual Major/Minor version bump in manifest.json: $NEW_VER"
+            else
+                if [ "$LATEST_TAG" = "v0.0.0" ]; then
+                    NEW_VER="$MANIFEST_VER"
+                else
+                    NEXT_PATCH=$((LATEST_PATCH + 1))
+                    NEW_VER="${LATEST_MAJOR}.${LATEST_MINOR}.${NEXT_PATCH}"
+                fi
+                echo "Auto incremented patch version to: $NEW_VER"
+            fi
+            TAG_NAME="v$NEW_VER"
           fi
 
           jq --arg v "$NEW_VER" '.version = $v' custom_components/hitachi_infrared/manifest.json > tmp.json && mv tmp.json custom_components/hitachi_infrared/manifest.json
 
-          echo "TAG_NAME=v$NEW_VER" >> $GITHUB_ENV
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
           echo "VERSION=$NEW_VER" >> $GITHUB_ENV
 
       - name: Commit manifest.json version bump
+        if: github.ref_type != 'tag'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add custom_components/hitachi_infrared/manifest.json
           git diff --quiet && git diff --staged --quiet || (git commit -m "chore(release): bump version to ${{ env.TAG_NAME }} [skip ci]" && git push origin release)
+
 
       - name: Zip custom component
         run: |
@@ -93,8 +105,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          PRERELEASE_FLAG=""
+          if [[ "${{ env.TAG_NAME }}" == *"-beta"* ]] || [[ "${{ env.TAG_NAME }}" == *"-rc"* ]] || [[ "${{ env.TAG_NAME }}" == *"-alpha"* ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
           gh release create "${{ env.TAG_NAME }}" hitachi_infrared.zip sbom.spdx.json \
-            --title "Release ${{ env.TAG_NAME }}" \
+            --title "${{ env.TAG_NAME }}" \
+            $PRERELEASE_FLAG \
             --generate-notes
 
 
