@@ -32,14 +32,22 @@ jobs:
             echo "Triggered by tag push: $TAG_NAME"
           else
             MANIFEST_VER=$(jq -r '.version' custom_components/hitachi_infrared/manifest.json)
+            if [ -z "$MANIFEST_VER" ] || [ "$MANIFEST_VER" = "null" ]; then
+              MANIFEST_VER="1.0.0"
+            fi
+
             LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
             LATEST_VER="${LATEST_TAG#v}"
 
             echo "Manifest version: $MANIFEST_VER"
             echo "Latest Git Tag: $LATEST_TAG ($LATEST_VER)"
 
-            IFS='.' read -r MANIFEST_MAJOR MANIFEST_MINOR MANIFEST_PATCH <<< "$MANIFEST_VER"
-            IFS='.' read -r LATEST_MAJOR LATEST_MINOR LATEST_PATCH <<< "$LATEST_VER"
+            # Strip non-numeric suffixes (e.g. -beta.1) for numeric comparison and arithmetic
+            MANIFEST_NUMERIC=$(echo "$MANIFEST_VER" | sed -E 's/[-+].*$//')
+            LATEST_NUMERIC=$(echo "$LATEST_VER" | sed -E 's/[-+].*$//')
+
+            IFS='.' read -r MANIFEST_MAJOR MANIFEST_MINOR MANIFEST_PATCH <<< "$MANIFEST_NUMERIC"
+            IFS='.' read -r LATEST_MAJOR LATEST_MINOR LATEST_PATCH <<< "$LATEST_NUMERIC"
 
             MANIFEST_MAJOR=${MANIFEST_MAJOR:-0}
             MANIFEST_MINOR=${MANIFEST_MINOR:-0}
@@ -49,21 +57,25 @@ jobs:
             LATEST_PATCH=${LATEST_PATCH:-0}
 
             if [ "$MANIFEST_MAJOR" -gt "$LATEST_MAJOR" ] 2>/dev/null || \
-               { [ "$MANIFEST_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$MANIFEST_MINOR" -gt "$LATEST_MINOR" ]; } 2>/dev/null; then
+               { [ "$MANIFEST_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$MANIFEST_MINOR" -gt "$LATEST_MINOR" ]; } 2>/dev/null || \
+               { [ "$MANIFEST_MAJOR" -eq "$LATEST_MAJOR" ] && [ "$MANIFEST_MINOR" -eq "$LATEST_MINOR" ] && [ "$MANIFEST_PATCH" -gt "$LATEST_PATCH" ]; } 2>/dev/null || \
+               [[ "$MANIFEST_VER" == *"-beta"* ]] || [[ "$MANIFEST_VER" == *"-rc"* ]]; then
                 NEW_VER="$MANIFEST_VER"
-                echo "Detected manual Major/Minor version bump in manifest.json: $NEW_VER"
+                echo "Using version from manifest.json: $NEW_VER"
             else
-                if [ "$LATEST_TAG" = "v0.0.0" ]; then
-                    NEW_VER="$MANIFEST_VER"
-                else
-                    NEXT_PATCH=$((LATEST_PATCH + 1))
-                    NEW_VER="${LATEST_MAJOR}.${LATEST_MINOR}.${NEXT_PATCH}"
-                fi
+                NEXT_PATCH=$((LATEST_PATCH + 1))
+                NEW_VER="${LATEST_MAJOR}.${LATEST_MINOR}.${NEXT_PATCH}"
                 echo "Auto incremented patch version to: $NEW_VER"
             fi
             TAG_NAME="v$NEW_VER"
           fi
 
+          if [ -z "$TAG_NAME" ] || [ "$TAG_NAME" = "v" ] || [ -z "$NEW_VER" ]; then
+            echo "::error::Calculated version is invalid or empty!"
+            exit 1
+          fi
+
+          # Update manifest.json with calculated version
           jq --arg v "$NEW_VER" '.version = $v' custom_components/hitachi_infrared/manifest.json > tmp.json && mv tmp.json custom_components/hitachi_infrared/manifest.json
 
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
@@ -76,6 +88,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add custom_components/hitachi_infrared/manifest.json
           git diff --quiet && git diff --staged --quiet || (git commit -m "chore(release): bump version to ${{ env.TAG_NAME }} [skip ci]" && git push origin release)
+
+
 
 
       - name: Zip custom component
@@ -105,6 +119,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [ -z "${{ env.TAG_NAME }}" ]; then
+            echo "Error: TAG_NAME is empty."
+            exit 1
+          fi
           PRERELEASE_FLAG=""
           if [[ "${{ env.TAG_NAME }}" == *"-beta"* ]] || [[ "${{ env.TAG_NAME }}" == *"-rc"* ]] || [[ "${{ env.TAG_NAME }}" == *"-alpha"* ]]; then
             PRERELEASE_FLAG="--prerelease"
