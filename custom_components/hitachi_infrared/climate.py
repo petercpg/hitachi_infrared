@@ -790,7 +790,7 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
 
             timings = [abs(t) for t in raw_timings]
             if len(timings) % 2 != 0:
-                timings.append(50000)  # Add 50ms lead-out space for odd timing count
+                timings.append(0)
 
             num_pairs = len(timings) // 2
             pronto_parts = ["0000", freq_hex, f"{num_pairs:04x}", "0000"]
@@ -807,25 +807,44 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
             # Raw microsecond timing array (for ESPHome/GPIO)
             command_payload = [abs(t) for t in raw_timings]
 
-        # HA remote.send_command expects a list of command strings for broadlink/pronto, or raw timing list
-        if isinstance(command_payload, str):
-            payload_list = [command_payload]
-        elif isinstance(command_payload, list):
-            payload_list = command_payload
+        # HA remote.send_command: broadlink expects list [str], pronto expects str, raw expects list [int]
+        if self._encoding == "broadlink":
+            payload_to_send = [command_payload]
         else:
-            payload_list = [command_payload]
+            payload_to_send = command_payload
 
-        _LOGGER.debug(
-            "Calling remote.send_command on %s with encoding %s",
-            self._remote_entity,
-            self._encoding,
+        # Build payload preview for debug notification
+        if isinstance(command_payload, str):
+            payload_preview = command_payload[:120] + (
+                "..." if len(command_payload) > 120 else ""
+            )
+            payload_len = f"{len(command_payload)} chars"
+        else:
+            payload_preview = str(command_payload[:6]) + (
+                "..." if len(command_payload) > 6 else ""
+            )
+            payload_len = f"{len(command_payload)} elements"
+
+        send_log_msg = (
+            f"remote.send_command → {self._remote_entity}\n"
+            f"encoding: {self._encoding} ({payload_len})\n"
+            f"payload: {payload_preview}"
         )
+        _LOGGER.debug(send_log_msg)
+
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            persistent_notification.async_create(
+                self.hass,
+                message=send_log_msg,
+                title=f"Hitachi IR TX ({self.name})",
+                notification_id=f"hitachi_ir_tx_{self.entity_id}",
+            )
 
         # Transmit command to traditional remote entity
         await self.hass.services.async_call(
             "remote",
             "send_command",
-            {"entity_id": self._remote_entity, "command": payload_list},
+            {"entity_id": self._remote_entity, "command": payload_to_send},
             blocking=False,
             context=self._context,
         )
