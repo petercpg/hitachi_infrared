@@ -21,7 +21,7 @@ HitachiAcSwingH = _protocol.HitachiAcSwingH
 
 # Target hex strings for validation
 _COOL_26_HIGH_ON_HEX = (
-    "01 10 00 40 BF FF 00 CC 33 A9 56 13 EC 68 97 00 "
+    "01 10 00 40 BF FF 00 CC 33 A5 5A 13 EC 68 97 00 "
     "FF 00 FF 00 FF 00 FF 00 FF 43 BC F1 0E 27 D8 07 "
     "F8 80 7F 03 FC 04 FB 20 DF 00 FF"
 )
