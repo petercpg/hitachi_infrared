@@ -25,7 +25,7 @@ This integration features a self-contained 344-bit protocol engine (`protocol.py
 - 🔄 **State Restoration**: Persists HVAC mode, target temperature, fan speed, swing settings, and presets across Home Assistant restarts.
 - 🛠️ **Custom Services**: Entity services for Display Brightness (`set_display`), PM2.5 Toggle (`set_pm25`), On/Off Timers (`set_timer`, `cancel_timer`), Sleep Timer (`set_sleep_timer`), Mold Prevention (`set_mold_prevention`), and Clean Cycle (`run_clean`).
 - ⚙️ **Configurable Feature Toggles**: Enable or disable optional UI cards and controls (Timers, Display Brightness, Somatosensory, Mold Prevention, Frost Wash, PM2.5) directly in Config Flow / Options Flow.
-- 🔔 **Debug Toast Notifications**: Live UI toast popups showing full payload parameters when DEBUG logging is active.
+- 🔔 **Debug Notifications**: Live UI notifications showing transmitted command parameters and Hitachi frame hex payload when DEBUG logging is active.
 - 🌐 **Multi-Language Support**: Fully localized in English (`en`) and Traditional Chinese (`zh-Hant`).
 
 ---
@@ -139,7 +139,7 @@ logger:
 
 When DEBUG mode is enabled:
 1. Integration startup prints integration and base `infrared-protocols` package version to the logs.
-2. Every transmitted IR action triggers a **Live Toast Notification** popup in the Home Assistant UI detailing the exact parameters sent!
+2. Every transmitted IR action triggers a **Debug Notification** popup in the Home Assistant UI detailing the exact parameters sent and the Hitachi frame hex payload, while complete raw payloads (Base64/Pronto/timings) are logged in Home Assistant System Logs without truncation.
 
 ---
 

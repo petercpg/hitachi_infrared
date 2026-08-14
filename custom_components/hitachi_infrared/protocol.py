@@ -263,9 +263,8 @@ class HitachiAc344Command(Command):
         self.mold_duration = mold_duration
         self.button = button
 
-    @override
-    def get_raw_timings(self) -> list[int]:
-        """Get raw timings for the Hitachi AC 344-bit command."""
+    def get_payload_bytes(self) -> bytes:
+        """Get the 43-byte payload for the Hitachi AC 344-bit command."""
         payload = list(_BASE_SKELETON)
 
         payload[11] = self.button.value
@@ -341,6 +340,16 @@ class HitachiAc344Command(Command):
         payload[37] = byte37_val
         payload[38] = (~byte37_val) & 0xFF
 
+        return bytes(payload)
+
+    def get_payload_hex(self) -> str:
+        """Get the 43-byte payload formatted as uppercase hex string."""
+        return self.get_payload_bytes().hex(" ").upper()
+
+    @override
+    def get_raw_timings(self) -> list[int]:
+        """Get raw timings for the Hitachi AC 344-bit command."""
+        payload = self.get_payload_bytes()
         timings: list[int] = [_HDR_MARK, -_HDR_SPACE]
         for byte_val in payload:
             for bit_idx in range(8):

@@ -468,3 +468,19 @@ def test_decode_compatible_generation_header() -> None:
     assert decoded.mode == HitachiAcMode.COOL
     assert decoded.fan == HitachiAcFanSpeed.HIGH
     assert decoded.power is True
+
+
+def test_payload_bytes_and_hex() -> None:
+    """Validate get_payload_bytes and get_payload_hex methods."""
+    cmd = HitachiAc344Command(
+        mode=HitachiAcMode.COOL,
+        temperature=26,
+        fan=HitachiAcFanSpeed.HIGH,
+        power=True,
+        swing_v=True,
+        button=HitachiAcButton.POWER,
+    )
+    payload_bytes = cmd.get_payload_bytes()
+    assert len(payload_bytes) == 43
+    assert list(payload_bytes) == _parse_hex(_COOL_26_HIGH_ON_HEX)
+    assert cmd.get_payload_hex() == _COOL_26_HIGH_ON_HEX

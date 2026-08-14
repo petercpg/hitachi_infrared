@@ -720,21 +720,6 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         # Determine button code to transmit
         button_code = hitachi.HitachiAcButton.POWER if not is_on else self._last_button
 
-        log_msg = (
-            f"Sending command: mode {self._attr_hvac_mode}, temp {target_temp}, "
-            f"fan {self._attr_fan_mode}, swing_v {self._attr_swing_mode}, "
-            f"swing_h {self._attr_swing_horizontal_mode}, button {button_code.name}"
-        )
-        _LOGGER.debug(log_msg)
-
-        if _LOGGER.isEnabledFor(logging.DEBUG):
-            persistent_notification.async_create(
-                self.hass,
-                message=log_msg,
-                title=f"Hitachi IR ({self.name})",
-                notification_id=f"hitachi_ir_debug_{self.entity_id}",
-            )
-
         # Instantiate command object based on configured protocol
         protocol_map = {
             "ac344": hitachi.HitachiAc344Command,
@@ -757,8 +742,57 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
             button=button_code,
         )
 
+        signal_payload_hex = (
+            command.get_payload_hex() if hasattr(command, "get_payload_hex") else ""
+        )
+
+        temp_str = (
+            f"{target_temp:+d}°C"
+            if current_mode == hitachi.HitachiAcMode.AUTO
+            else f"{target_temp}°C"
+        )
+        details = [
+            f"Power: {'ON' if is_on else 'OFF'}",
+            f"Mode: {self._attr_hvac_mode}",
+            f"Temp: {temp_str}",
+            f"Fan: {self._attr_fan_mode}",
+            f"Swing V: {self._attr_swing_mode}",
+            f"Swing H: {self._attr_swing_horizontal_mode}",
+            f"Button: {button_code.name}",
+        ]
+        if self._eco:
+            details.append("Eco: ON")
+        if self._mold_prevention:
+            details.append(f"Mold Prevention: ON ({self._mold_duration.name})")
+        if self._off_timer_mins is not None:
+            details.append(f"Off Timer: {self._off_timer_mins}m")
+        if self._on_timer_mins is not None:
+            details.append(f"On Timer: {self._on_timer_mins}m")
+
+        details_str = ", ".join(details)
+
         # For HA infrared entity, send command object via async_send_command
         if self._remote_entity.startswith("infrared."):
+            _LOGGER.debug(
+                "Sending command for %s to %s: %s | Payload (Hex): %s",
+                self.entity_id,
+                self._remote_entity,
+                details_str,
+                signal_payload_hex,
+            )
+
+            if _LOGGER.isEnabledFor(logging.DEBUG):
+                persistent_notification.async_create(
+                    self.hass,
+                    message=(
+                        f"**Signals Sent:**\n{details_str}\n\n"
+                        f"**Signal Payload (Hex):**\n`{signal_payload_hex}`\n\n"
+                        f"**Target:** `{self._remote_entity}`"
+                    ),
+                    title=f"Hitachi IR Debug ({self.name})",
+                    notification_id=f"hitachi_ir_debug_{self.entity_id}",
+                )
+
             await infrared.async_send_command(
                 self.hass, self._remote_entity, command, context=self._context
             )
@@ -813,31 +847,29 @@ class HitachiIRClimate(ClimateEntity, RestoreEntity):
         else:
             payload_to_send = command_payload
 
-        # Build payload preview for debug notification
-        if isinstance(command_payload, str):
-            payload_preview = command_payload[:120] + (
-                "..." if len(command_payload) > 120 else ""
-            )
-            payload_len = f"{len(command_payload)} chars"
-        else:
-            payload_preview = str(command_payload[:6]) + (
-                "..." if len(command_payload) > 6 else ""
-            )
-            payload_len = f"{len(command_payload)} elements"
-
-        send_log_msg = (
-            f"remote.send_command → {self._remote_entity}\n"
-            f"encoding: {self._encoding} ({payload_len})\n"
-            f"payload: {payload_preview}"
+        # Log complete untruncated raw payload to HA Log
+        _LOGGER.debug(
+            "Sending command for %s to %s (%s): %s | Payload (Hex): %s\n"
+            "Full raw payload:\n%s",
+            self.entity_id,
+            self._remote_entity,
+            self._encoding,
+            details_str,
+            signal_payload_hex,
+            command_payload,
         )
-        _LOGGER.debug(send_log_msg)
 
+        # Show signals sent and hex frame payload in persistent notification only when DEBUG is enabled
         if _LOGGER.isEnabledFor(logging.DEBUG):
             persistent_notification.async_create(
                 self.hass,
-                message=send_log_msg,
-                title=f"Hitachi IR TX ({self.name})",
-                notification_id=f"hitachi_ir_tx_{self.entity_id}",
+                message=(
+                    f"**Signals Sent:**\n{details_str}\n\n"
+                    f"**Signal Payload (Hex):**\n`{signal_payload_hex}`\n\n"
+                    f"**Target:** `{self._remote_entity}` ({self._encoding})"
+                ),
+                title=f"Hitachi IR Debug ({self.name})",
+                notification_id=f"hitachi_ir_debug_{self.entity_id}",
             )
 
         # Transmit command to traditional remote entity
