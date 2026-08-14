@@ -87,8 +87,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add custom_components/hitachi_infrared/manifest.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore(release): bump version to ${{ env.TAG_NAME }} [skip ci]" && git push origin release)
-
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore(release): bump version to $TAG_NAME [skip ci]" && git push origin release)
 
 
 
@@ -99,7 +98,7 @@ jobs:
           cd ..
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4
+        uses: actions/attest@v4
         with:
           subject-path: hitachi_infrared.zip
 
@@ -110,7 +109,7 @@ jobs:
           output-file: sbom.spdx.json
 
       - name: Attest SBOM
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4
+        uses: actions/attest@v4
         with:
           subject-path: hitachi_infrared.zip
           sbom-path: sbom.spdx.json
@@ -119,16 +118,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -z "${{ env.TAG_NAME }}" ]; then
+          if [ -z "$TAG_NAME" ]; then
             echo "Error: TAG_NAME is empty."
             exit 1
           fi
           PRERELEASE_FLAG=""
-          if [[ "${{ env.TAG_NAME }}" == *"-beta"* ]] || [[ "${{ env.TAG_NAME }}" == *"-rc"* ]] || [[ "${{ env.TAG_NAME }}" == *"-alpha"* ]]; then
+          if [[ "$TAG_NAME" == *"-beta"* ]] || [[ "$TAG_NAME" == *"-rc"* ]] || [[ "$TAG_NAME" == *"-alpha"* ]]; then
             PRERELEASE_FLAG="--prerelease"
           fi
-          gh release create "${{ env.TAG_NAME }}" hitachi_infrared.zip sbom.spdx.json \
-            --title "${{ env.TAG_NAME }}" \
+          gh release create "$TAG_NAME" hitachi_infrared.zip sbom.spdx.json \
+            --title "$TAG_NAME" \
             $PRERELEASE_FLAG \
             --generate-notes
 
